@@ -5,8 +5,11 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from dataclasses import dataclass, field
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -29,6 +32,22 @@ class SharedState:
     # Metadata
     trace_id: str = ""
     messages: list = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        """Convert SharedState to dict for JSON serialization."""
+        return {
+            "symbol": self.symbol,
+            "trade_date": self.trade_date,
+            "btc_signal": self.btc_signal,
+            "eth_signal": self.eth_signal,
+            "sol_signal": self.sol_signal,
+            "macro_signal": self.macro_signal,
+            "risk_assessment": self.risk_assessment,
+            "trading_decision": self.trading_decision,
+            "final_decision": self.final_decision,
+            "trace_id": self.trace_id,
+            "messages": self.messages,
+        }
 
 
 class SharedMemory:
@@ -71,11 +90,15 @@ class SharedMemory:
         async with self._lock:
             self._data[trace_id] = state
             if self._redis:
-                await self._redis.set(
-                    f"state:{trace_id}",
-                    json.dumps(self._to_dict(state)),
-                    ex=3600,
-                )
+                try:
+                    await self._redis.set(
+                        f"state:{trace_id}",
+                        json.dumps(state.to_dict()),
+                        ex=3600,
+                    )
+                except Exception as e:
+                    # Redis write failure does not block main flow
+                    logger.warning("Redis write failed for trace_id=%s: %s", trace_id, e)
 
     async def update(self, trace_id: str, **kwargs):
         """Update specific fields in a state.
@@ -100,23 +123,10 @@ class SharedMemory:
             if trace_id in self._data:
                 del self._data[trace_id]
             if self._redis:
-                await self._redis.delete(f"state:{trace_id}")
-
-    def _to_dict(self, state: SharedState) -> dict:
-        """Convert SharedState to dict for JSON serialization."""
-        return {
-            "symbol": state.symbol,
-            "trade_date": state.trade_date,
-            "btc_signal": state.btc_signal,
-            "eth_signal": state.eth_signal,
-            "sol_signal": state.sol_signal,
-            "macro_signal": state.macro_signal,
-            "risk_assessment": state.risk_assessment,
-            "trading_decision": state.trading_decision,
-            "final_decision": state.final_decision,
-            "trace_id": state.trace_id,
-            "messages": state.messages,
-        }
+                try:
+                    await self._redis.delete(f"state:{trace_id}")
+                except Exception as e:
+                    logger.warning("Redis delete failed for trace_id=%s: %s", trace_id, e)
 
     @classmethod
     def from_dict(cls, data: dict) -> SharedState:

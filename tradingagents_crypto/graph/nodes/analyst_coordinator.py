@@ -4,9 +4,12 @@ Analyst coordinator for managing parallel analyst execution.
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Any
 
 from tradingagents_crypto.agents.factory import AgentFactory
+
+logger = logging.getLogger(__name__)
 
 
 async def analyst_coordinator(state: dict) -> dict:
@@ -39,14 +42,29 @@ async def analyst_coordinator(state: dict) -> dict:
                 _safe_analyst_run(analyst, task)
             )
         high_results = await asyncio.gather(*high_tasks, return_exceptions=True)
+        all_high_failed = True
         for task, result in zip(high_priority, high_results):
             if not isinstance(result, Exception):
                 results[task["type"]] = result
+                all_high_failed = False
             else:
                 results[task["type"]] = {"error": str(result)}
+                logger.error(
+                    "High-priority analyst %s failed: %s",
+                    task["type"],
+                    result,
+                )
 
-    # Low priority: serial execution (fallback if high priority fails)
-    if not results and low_priority:
+        if all_high_failed and high_priority:
+            logger.error(
+                "All %d high-priority analysts failed",
+                len(high_priority),
+            )
+
+    # Low priority: execute unconditionally (fallback when high priority
+    # produced no useful results, but also runs alongside successful high
+    # priority results to enrich the analysis)
+    if low_priority:
         for task in low_priority:
             analyst = AgentFactory.create_analyst(task["type"], llm)
             try:
@@ -57,6 +75,11 @@ async def analyst_coordinator(state: dict) -> dict:
                 results[task["type"]] = result
             except Exception as e:
                 results[task["type"]] = {"error": str(e)}
+                logger.warning(
+                    "Low-priority analyst %s failed: %s",
+                    task["type"],
+                    e,
+                )
 
     return {
         "analyst_results": results,
