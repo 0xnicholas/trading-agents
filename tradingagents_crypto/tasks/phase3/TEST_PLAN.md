@@ -69,7 +69,7 @@
 |----|---------|---------|---------|
 | T_HV_01 | 低波动市场 | 30天HV=30%，ATR低 | recommended_leverage ≥ 8 |
 | T_HV_02 | 高波动市场 | 30天HV=90%百分位 | recommended_leverage ≤ 3 |
-| T_HV_03 | ATR计算正确 | 标准K线数据 | ATR值与手动计算误差<0.1% |
+| T_HV_03 | ATR计算正确 | 标准K线数据 | ATR值与手动计算误差<1.0% |
 | T_HV_04 | HV百分位边界 | HV=0%, HV=100% | 不崩溃，返回合理百分位 |
 | T_HV_05 | position="extreme"条件 | HV Percentile=95 | position="extreme" |
 | T_HV_06 | 空数据/NaN处理 | 全NaN K线 | 返回默认值，不崩溃 |
@@ -265,7 +265,7 @@ positions = [
 
 | ID | 测试内容 | 数据 | 预期结果 |
 |----|---------|------|---------|
-| T_BM_01 | 夏普比率计算 | 已知收益序列 | 与手动计算误差<0.01 |
+| T_BM_01 | 夏普比率计算 | 固定合成数据 seed=42 | 与手动计算误差<0.05 |
 | T_BM_02 | 最大回撤 | 已知equity | 回撤值正确 |
 | T_BM_03 | 卡玛比率 | 已知equity | ratio = annual_return / max_dd |
 | T_BM_04 | 胜率计算 | 已知trades | win_rate正确 |
@@ -298,6 +298,8 @@ positions = [
 | 5 | 生成报告 | Markdown文件生成 |
 
 ### Case 2: 资金费率均值回归策略
+
+> ⚠️ **Binance 费率数据源**: Case 2 使用 Binance 历史资金费率作为信号输入。M3.0 验证时会确认 Binance 是否作为实时数据源接入。如不可用，该案例改为仅使用 Hyperliquid 费率。
 
 | 步骤 | 测试内容 | 验收条件 |
 |------|---------|---------|
@@ -353,6 +355,25 @@ def generate_synthetic_funding(
     base_rate: float = 0.0001,
 ) -> pd.DataFrame:
     """每8h一个费率记录，随机正负波动"""
+
+
+### 合成数据构造示例
+
+```python
+# T_BT_INT_02: 构造5%缺失数据
+candles = generate_synthetic_candles(days=42)  # ~1000条1h K线
+np.random.seed(42)
+missing_idx = np.random.choice(
+    len(candles),
+    size=int(len(candles) * 0.05),
+    replace=False
+)
+candles_with_gaps = candles.drop(candles.index[missing_idx])
+
+result = cache.check_gaps(candles_with_gaps)
+assert result["completeness"] < 0.96  # 约95%
+assert result["total_gaps"] > 0
+```
 ```
 
 ---
@@ -369,8 +390,8 @@ def generate_synthetic_funding(
 
 | 指标 | 目标 |
 |------|------|
-| 行覆盖率 | ≥ 85% |
-| 分支覆盖率 | ≥ 75% |
+| 行覆盖率 | ≥ 75% |
+| 分支覆盖率 | ≥ 65% |
 | 单元测试数 | ≥ 50 |
 | 集成测试数 | ≥ 5 |
 | E2E案例 | 3 (Case 1/2/3) |

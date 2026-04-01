@@ -75,16 +75,26 @@ def analyze_hv(candles_1h: pd.DataFrame) -> HVAnalysis:
     """
     计算历史波动率和ATR。
 
+    数据窗口:
+    - HV: 使用最近30天（约720条1h K线）的收盘价收益率
+    - ATR: 使用最近14条K线的True Range
+
     HV计算:
-        returns = candles["close"].pct_change().dropna()
-        hv = returns.std() * sqrt(365)  # 年化
+        hv_window = candles_1h.tail(30 * 24)  # 最近30天
+        returns = hv_window["close"].pct_change().dropna()
+        hv_annualized = returns.std() * sqrt(365)
+
+    HV Percentile计算:
+        rolling_hv = returns.rolling(30).std() * sqrt(365)
+        current_hv = rolling_hv.iloc[-1]
+        hv_percentile = (rolling_hv < current_hv).mean() * 100
 
     ATR计算:
-        high_low = candles["high"] - candles["low"]
-        high_close = abs(candles["high"] - candles["close"].shift())
-        low_close = abs(candles["low"] - candles["close"].shift())
+        high_low = candles_1h["high"] - candles_1h["low"]
+        high_close = abs(candles_1h["high"] - candles_1h["close"].shift())
+        low_close = abs(candles_1h["low"] - candles_1h["close"].shift())
         tr = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
-        atr = tr.rolling(14).mean()
+        atr_14 = tr.rolling(14).mean().iloc[-1]
     """
 ```
 
@@ -128,7 +138,11 @@ def check_exposure(
     - 最大杠杆: 20x
     - 多币种分散度: >= 3 币种 (警告)
 
-    注意: 空仓和多仓可以同时存在（对冲），但净敞口不能超限
+    注意:
+    - 空仓和多仓可以同时存在（对冲）
+    - 净敞口 = |long_usd - short_usd|（对冲后实际暴露）
+    - 总敞口 = long_usd + short_usd（不考虑对冲）
+    - 规则检查的是"单向总暴露上限"，即对冲后的净敞口方向
     """
 ```
 
@@ -194,8 +208,12 @@ class CryptoPortfolioManager:
     - 账户权益计算 (mark_price based)
     """
 
-    def add_position(self, position: CryptoPosition) -> bool:
-        """添加仓位，返回是否成功（失败时抛出ExposureViolation）"""
+    def add_position(self, position: CryptoPosition) -> ExposureCheckResult:
+        """
+        添加仓位，返回检查结果，不抛异常。
+
+        调用方根据 result.approved 决定是否执行。
+        """
 
     def remove_position(self, symbol: str) -> CryptoPosition | None:
 
@@ -246,6 +264,7 @@ def run_backtest(
     initial_capital: float = 100_000,
     commission_rate: float = 0.0004, # 单向手续费率
     slippage_bps: float = 5.0,
+    oi_available: bool = True,       # OI数据是否可用（默认True，M3.0验证后调整）
 ) -> BacktestResult:
     """
     运行回测。
@@ -254,6 +273,7 @@ def run_backtest(
     1. 加载历史K线数据
     2. 按interval遍历每个时间点
     3. 调用 strategy_fn(timestamp, candles, funding, oi, indicators)
+       - 如果 oi_available=False，则传入 oi=None
     4. 模拟订单执行 (市价单)
     5. 计算手续费 + 滑点 + 资金费率
     6. 更新权益
@@ -317,8 +337,8 @@ def estimate_slippage(
 class BenchmarkMetrics:
     total_return: float
     sharpe_ratio: float
-    max_drawdown: float
-    calmar_ratio: float          # 年化收益 / 最大回撤
+    max_drawdown: float         # 负数，如 -0.20 表示 20% 回撤
+    calmar_ratio: float         # 年化收益 / |最大回撤|  （对回撤取绝对值）
     win_rate: float
     profit_factor: float         # 盈利总额 / 亏损总额
     avg_trade_duration_hours: float
@@ -462,6 +482,15 @@ tradingagents_crypto/
 | BacktestEngine | 历史K线 + 资金费率 | 本地缓存/Parquet |
 | FundingSimulator | 历史资金费率 | 从HL API获取 |
 
+## 依赖项
+
+| 依赖 | 版本 | 用途 |
+|------|------|------|
+| pandas | ≥2.0 | 数据处理 |
+| numpy | ≥1.24 | 数值计算 |
+| pyarrow | ≥10.0 | Parquet 格式支持 |
+| scikit-learn | ≥1.0 | 指标计算（如需要） |
+
 ---
 
 ## 置信度标注
@@ -484,3 +513,4 @@ class BacktestConfidence:
 | 日期 | 版本 | 变更 |
 |------|------|------|
 | 2026-04-02 | v1.0 | 初始版本 |
+| 2026-04-02 | v1.1 | 修复：oi参数Optional、HV/ATR窗口分离、PM返回值改为ExposureCheckResult、净敞口明确定义、calmar对max_drawdown取绝对值、pyarrow依赖、Case2 Binance标注 |
