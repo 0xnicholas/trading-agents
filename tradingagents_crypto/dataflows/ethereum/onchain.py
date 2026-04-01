@@ -113,6 +113,7 @@ def get_defi_tvl() -> dict:
         "tvl_eth": 0.0,
         "tvl_usd": 0.0,
         "label": "unknown",
+        "status": "unavailable",
         "confidence": 0.3,
         "note": "DeFiLlama API not accessible from VM",
     }

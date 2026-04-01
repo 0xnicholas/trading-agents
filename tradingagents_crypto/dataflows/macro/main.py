@@ -9,10 +9,36 @@ Aggregates all macro market data:
 """
 import logging
 from datetime import datetime, timezone
+from typing import Any, Callable, TypeVar
 
 from tradingagents_crypto.dataflows.hyperliquid.cache import CacheManager
 
 logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
+
+
+def _safe_get(
+    func: Callable[[], T],
+    field_name: str,
+    default: Any,
+) -> T:
+    """
+    Safely call a function and return default on failure.
+
+    Args:
+        func: Function to call
+        field_name: Name for logging
+        default: Default value on failure
+
+    Returns:
+        Result of func() or default
+    """
+    try:
+        return func()
+    except Exception as e:
+        logger.warning(f"Failed to get {field_name}: {e}")
+        return default
 
 
 def get_macro_data(
@@ -42,31 +68,31 @@ def get_macro_data(
     }
 
     # BTC Dominance
-    try:
-        result["btc_dominance"] = btc_dominance.get_btc_dominance(cache=cache)
-    except Exception as e:
-        logger.warning(f"Failed to get BTC dominance: {e}")
-        result["btc_dominance"] = {"btc_dominance": 0.0, "confidence": 0.0}
+    result["btc_dominance"] = _safe_get(
+        lambda: btc_dominance.get_btc_dominance(cache=cache),
+        "BTC dominance",
+        {"btc_dominance": 0.0, "confidence": 0.0},
+    )
 
     # Fear & Greed
-    try:
-        result["fear_greed"] = fear_greed.get_current(cache=cache)
-    except Exception as e:
-        logger.warning(f"Failed to get Fear & Greed: {e}")
-        result["fear_greed"] = {"value": 50, "label": "Neutral", "confidence": 0.0}
+    result["fear_greed"] = _safe_get(
+        lambda: fear_greed.get_current(cache=cache),
+        "Fear & Greed",
+        {"value": 50, "label": "Neutral", "confidence": 0.0},
+    )
 
     # Stablecoin Flow
-    try:
-        result["stablecoin_flow"] = stablecoin_flow.get_stablecoin_flow(cache=cache)
-    except Exception as e:
-        logger.warning(f"Failed to get stablecoin flow: {e}")
-        result["stablecoin_flow"] = {"total_supply": 0.0, "confidence": 0.0}
+    result["stablecoin_flow"] = _safe_get(
+        lambda: stablecoin_flow.get_stablecoin_flow(cache=cache),
+        "Stablecoin flow",
+        {"total_supply": 0.0, "confidence": 0.0},
+    )
 
     # Correlation
-    try:
-        result["correlation"] = correlation.get_correlations(cache=cache)
-    except Exception as e:
-        logger.warning(f"Failed to get correlations: {e}")
-        result["correlation"] = {"btc_eth_corr_7d": 0.0, "btc_sol_corr_7d": 0.0, "confidence": 0.0}
+    result["correlation"] = _safe_get(
+        lambda: correlation.get_correlations(cache=cache),
+        "Correlations",
+        {"btc_eth_corr_7d": 0.0, "btc_sol_corr_7d": 0.0, "confidence": 0.0},
+    )
 
     return result

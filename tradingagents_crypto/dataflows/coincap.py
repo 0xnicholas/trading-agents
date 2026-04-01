@@ -15,7 +15,12 @@ import logging
 from typing import Any
 
 import requests
-from tenacity import retry, stop_after_attempt, wait_exponential
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type,
+)
 
 from tradingagents_crypto.dataflows.hyperliquid.cache import CacheManager
 
@@ -34,9 +39,14 @@ class CoinCapClient:
         self.session = requests.Session()
         self.session.headers.update({"Content-Type": "application/json"})
 
-    @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(min=1, max=10),
+        retry=retry_if_exception_type((requests.RequestException, requests.Timeout)),
+        reraise=True,
+    )
     def _get(self, endpoint: str, params: dict | None = None) -> dict:
-        """Make a GET request with retry."""
+        """Make a GET request with retry on network errors."""
         url = f"{self.BASE_URL}{endpoint}"
         response = self.session.get(url, params=params, timeout=10)
         response.raise_for_status()
@@ -159,44 +169,55 @@ class CoinCapClient:
         if cached:
             return cached
 
+        # Fetch each stablecoin individually to handle partial failures
+        tether_data = None
+        usdc_data = None
+        tether_error = None
+        usdc_error = None
+
         try:
-            tether = self.get_asset("tether")  # USDT
-            usdc = self.get_asset("usd-coin")  # USDC
-
-            tether_supply = float(tether.get("supply", 0)) if tether else 0.0
-            usdc_supply = float(usdc.get("supply", 0)) if usdc else 0.0
-
-            # 24h change
-            tether_change = float(tether.get("changePercent24Hr", 0)) if tether else 0.0
-            usdc_change = float(usdc.get("changePercent24Hr", 0)) if usdc else 0.0
-
-            result = {
-                "tether_supply": tether_supply,
-                "usd_coin_supply": usdc_supply,
-                "total_supply": tether_supply + usdc_supply,
-                "tether_change_24h": tether_change,
-                "usdc_change_24h": usdc_change,
-                "confidence": 0.5,  # Approximation only
-            }
-
-            self.cache.set(cache_key, result, DEFAULT_TTL)
-            return result
-
+            tether_data = self.get_asset("tether")  # USDT
         except Exception as e:
-            logger.warning(f"CoinCap get_stablecoin_supplies failed: {e}")
-            return {
-                "tether_supply": 0.0,
-                "usd_coin_supply": 0.0,
-                "total_supply": 0.0,
-                "confidence": 0.3,
-            }
+            tether_error = str(e)
+            logger.warning(f"Tether lookup failed: {e}")
+
+        try:
+            usdc_data = self.get_asset("usd-coin")  # USDC
+        except Exception as e:
+            usdc_error = str(e)
+            logger.warning(f"USDC lookup failed: {e}")
+
+        tether_supply = float(tether_data.get("supply", 0)) if tether_data else 0.0
+        usdc_supply = float(usdc_data.get("supply", 0)) if usdc_data else 0.0
+
+        # 24h change
+        tether_change = float(tether_data.get("changePercent24Hr", 0)) if tether_data else 0.0
+        usdc_change = float(usdc_data.get("changePercent24Hr", 0)) if usdc_data else 0.0
+
+        # Determine success status
+        has_error = tether_error is not None or usdc_error is not None
+
+        result = {
+            "tether_supply": tether_supply,
+            "usd_coin_supply": usdc_supply,
+            "total_supply": tether_supply + usdc_supply,
+            "tether_change_24h": tether_change,
+            "usdc_change_24h": usdc_change,
+            "status": "error" if has_error else "success",
+            "errors": [e for e in [tether_error, usdc_error] if e],
+            "confidence": 0.5 if not has_error else 0.3,
+        }
+
+        self.cache.set(cache_key, result, DEFAULT_TTL)
+        return result
 
     def get_eth_staking_ratio(self) -> float:
         """
         Get ETH staking ratio (approximation).
 
-        Note: CoinCap doesn't have direct staking data,
-        this is an approximation based on supplied vs market cap.
+        Note: CoinCap does NOT have direct staking data.
+        This returns an approximation based on circulating supply vs max supply.
+        This is NOT the actual staking ratio (which requires a dedicated staking API).
         """
         cache_key = "coincap:eth_staking_ratio"
         cached = self.cache.get(cache_key)
@@ -209,12 +230,12 @@ class CoinCapClient:
                 return 0.0
 
             # Approximation: CoinCap doesn't expose staking directly
-            # Use circulating supply vs max supply as proxy
+            # Use circulating supply vs max supply as a VERY rough proxy
             supply = float(eth.get("supply", 0))
             max_supply = float(eth.get("maxSupply", 0)) or 120_000_000  # ETH max ~120M
 
-            # If circulating is close to max, less staked
-            # This is very rough - should use a dedicated staking API
+            # This is a supply ratio, NOT a staking ratio
+            # Real staking data requires a separate API (e.g., staking APIs, DeFiLlama)
             ratio = min(supply / max_supply, 1.0) if max_supply > 0 else 0.0
 
             self.cache.set(cache_key, ratio, DEFAULT_TTL)

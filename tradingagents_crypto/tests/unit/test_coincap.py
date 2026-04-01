@@ -119,25 +119,10 @@ class TestCoinCapClient:
 
     def test_get_stablecoin_supplies_structure(self, mock_cache, mock_session):
         """Test stablecoin supplies returns correct structure."""
-        def side_effect(url, **kwargs):
-            if "tether" in url:
-                return {
-                    "data": {
-                        "id": "tether",
-                        "supply": "100000000000",
-                        "changePercent24Hr": "0.01",
-                    }
-                }
-            else:
-                return {
-                    "data": {
-                        "id": "usd-coin",
-                        "supply": "50000000000",
-                        "changePercent24Hr": "0.02",
-                    }
-                }
-
-        mock_session.get.return_value.json.side_effect = side_effect
+        mock_session.get.return_value.json.side_effect = iter([
+            {"data": {"id": "tether", "supply": "100000000000", "changePercent24Hr": "0.01"}},
+            {"data": {"id": "usd-coin", "supply": "50000000000", "changePercent24Hr": "0.02"}},
+        ])
         mock_session.get.return_value.raise_for_status = MagicMock()
 
         client = CoinCapClient(cache=mock_cache)

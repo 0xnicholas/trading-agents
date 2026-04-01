@@ -8,10 +8,36 @@ Aggregates all SOL-related data:
 """
 import logging
 from datetime import datetime, timezone
+from typing import Any, Callable, TypeVar
 
 from tradingagents_crypto.dataflows.hyperliquid.cache import CacheManager
 
 logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
+
+
+def _safe_get(
+    func: Callable[[], T],
+    field_name: str,
+    default: Any,
+) -> T:
+    """
+    Safely call a function and return default on failure.
+
+    Args:
+        func: Function to call
+        field_name: Name for logging
+        default: Default value on failure
+
+    Returns:
+        Result of func() or default
+    """
+    try:
+        return func()
+    except Exception as e:
+        logger.warning(f"Failed to get {field_name}: {e}")
+        return default
 
 
 def get_sol_data(
@@ -46,27 +72,26 @@ def get_sol_data(
     }
 
     # Get spot price
-    try:
-        result["spot_price"] = sol_price.get_sol_price(cache=cache)
-    except Exception as e:
-        logger.warning(f"Failed to get SOL spot price: {e}")
-        result["spot_price"] = {"price_usd": 0.0, "confidence": 0.0}
+    result["spot_price"] = _safe_get(
+        lambda: sol_price.get_sol_price(cache=cache),
+        "SOL spot price",
+        {"price_usd": 0.0, "confidence": 0.0},
+    )
 
     # Get DEX liquidity
-    try:
-        result["dex"] = sol_dex.get_dex_liquidity(symbol, cache=cache)
-    except Exception as e:
-        logger.warning(f"Failed to get DEX liquidity: {e}")
-        result["dex"] = {"token": symbol, "total_tvl": 0.0, "confidence": 0.0}
+    result["dex"] = _safe_get(
+        lambda: sol_dex.get_dex_liquidity(symbol, cache=cache),
+        "DEX liquidity",
+        {"token": symbol, "total_tvl": 0.0, "confidence": 0.0},
+    )
 
     # Get meme coins (if SOL)
     if symbol == "SOL":
-        try:
-            meme_coins = sol_meme.get_meme_coins(limit=10, cache=cache)
-            result["meme"] = meme_coins
-        except Exception as e:
-            logger.warning(f"Failed to get meme coins: {e}")
-            result["meme"] = []
+        result["meme"] = _safe_get(
+            lambda: sol_meme.get_meme_coins(limit=10, cache=cache),
+            "Meme coins",
+            [],
+        )
     else:
         result["meme"] = []
 
