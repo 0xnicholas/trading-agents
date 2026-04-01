@@ -4,6 +4,10 @@
 **前置条件**: Phase 1 + Phase 2 完成并通过验收
 **目标**: 构建 Crypto 专属风险管理体系 + 规则化策略回测框架
 
+**已知限制**（Phase 3 启动前需确认）：
+- OI（Open Interest）数据源：需 M3.0 验证 Hyperliquid API 是否提供
+- 如 OI 不可用，所有 "OI 膨胀 > X%" 规则从 Case 1/2/3 中移除
+
 **架构决策**：回测引擎采用**路径 A**（规则化信号回测），而非 LLM Agent 决策重放。Agent 负责生成规则策略，回测引擎验证规则的历史表现。
 
 ---
@@ -17,9 +21,14 @@
 - [ ] `candles_snapshot()` — 查询 BTC-PERP K 线最早可用日期
 - [ ] `funding_history()` — 查询资金费率最早可用日期
 - [ ] Binance `/fapi/v1/fundingRate` — 历史数据最早日期
+- [ ] **OI（Open Interest）数据源验证**：
+  - Hyperliquid API 是否提供 OI 接口
+  - 如果不可用，所有依赖 OI 的规则（Case 1/2/3）需标注为 "data unavailable"
 - [ ] 输出：`docs/backtest_data_range.md`
 
 **回测起始日期**将根据实际上线时间调整（而非 2024-01-01）。
+
+> ⚠️ **如 OI 数据不可用**，Case 1/2/3 中的 OI 相关规则（"OI 膨胀 > X%"）需从策略中移除或标注为不可用。
 
 ---
 
@@ -99,12 +108,14 @@
   - 保证金率检查
   - 多币种混合持仓计算
   - 与 `StockPortfolioManager` 完全独立
-  - 通过 `config["mode"]` 路由：
+  - 使用**工厂函数**而非运行时路由，避免状态混乱：
     ```python
-    if config["mode"] == "crypto":
-        pm = CryptoPortfolioManager(config)
-    else:
-        pm = StockPortfolioManager(config)
+    # agents/managers/__init__.py
+    def create_portfolio_manager(config: dict) -> PortfolioManager:
+        """工厂函数：根据 config["mode"] 创建对应 PM（避免运行时路由导致状态 bug）。"""
+        if config.get("mode") == "crypto":
+            return CryptoPortfolioManager(config)
+        return StockPortfolioManager(config)
     ```
 
 ---
@@ -113,7 +124,9 @@
 
 #### M3.2.1 核心引擎
 - [ ] `backtest/backtest_engine.py`
-  - **时间基准**：按小时（而非交易日），支持 24/7 市场
+  - **时间基准**：按配置的 K 线周期遍历（**默认 1h**，非 wall-clock hour）
+    - 引擎按 `start_date` → `end_date` 的 **K 线条数** 遍历，而非真实小时数
+    - 示例：1 年回测 ≈ 8,760 条 1h K线（而非 8,760 wall-clock hours）
   - **信号接口**（规则化，非 LLM）：
     ```python
     def strategy_signal(
@@ -148,10 +161,18 @@
 #### M3.2.2 资金费率模拟器
 - [ ] `backtest/funding_simulator.py`
   - 加载历史资金费率（`funding_history()` 获取）
-  - 每个结算周期（8h）计算：
-    - 多仓：支付 funding_rate × position_value
-    - 空仓：收取 funding_rate × position_value
-  - 累计资金费率 PnL
+  - 每个结算周期（8h）计算资金费 PnL：
+    - **正费率（funding_rate > 0）**：多仓付钱给空仓 → 多仓亏损，空仓盈利
+    - **负费率（funding_rate < 0）**：空仓付钱给多仓 → 空仓亏损，多仓盈利
+    ```python
+    if position_side == "long":
+        funding_pnl = -funding_rate * position_value  # 负费率时多仓亏
+    else:
+        funding_pnl = funding_rate * position_value   # 正费率时空仓亏
+    ```
+  - 累计资金费率 PnL 并入总权益
+
+  > ⚠️ **方向错误会导致回测收益全错。务必按上述公式实现。**
 
 #### M3.2.3 滑点模型（假设估算）
 - [ ] `backtest/slippage_estimator.py`
@@ -206,34 +227,35 @@
   - 1h MA50 > MA200 → 做多
   - 1h MA50 < MA200 → 做空
   - 资金费率 > 0.05%（年化 > 15%）→ 禁止开空仓
-  - OI 膨胀 > 20% → 降低仓位 50%
+  - OI 膨胀 > 20% → 降低仓位 50%（**需 M3.0 确认 OI 数据可用**）
 参数：
   - 标的：BTC-PERP
   - 初始资金：$100,000
   - 杠杆：5x（根据 HV 动态调整 3-10x）
-  - 手续费：0.04%
+  - 手续费：0.04%（单向，**开仓+平仓=0.08%**）
   - 滑点：5 bps（估算）
 ```
 
 #### Case 2：资金费率均值回归策略
 ```
 规则：
-  - 8h 资金费率 > 0.01% → 做空（过度投机会）
-  - 8h 资金费率 < -0.01% → 做多（套利机会）
-  - OI 趋势确认：OI 收缩时优先做多资金费率
+  - 8h 资金费率 > 0.01% → 做空（正费率 = 多仓过度投机，空仓收取费率）
+  - 8h 资金费率 < -0.01% → 做多（负费率 = 空仓过度投机，多仓收取费率）
+  - OI 趋势确认：OI 收缩时优先做多资金费率（**需 M3.0 确认 OI 数据可用**）
   - 最大持仓时间：72h（强制平仓）
 参数：同上
 ```
 
-#### Case 3：BTC-PERP × SOL-DEX 现货跨链动量
+#### Case 3：BTC-PERP × SOL-永续跨链动量
 ```
 规则（Phase 2 后可用）：
-  - BTC-PERP 1h 涨幅 > 2% → 下一小时做多 SOL 现货
-  - SOL DEX 流动性 < $100k → 跳过信号
-  - Hyperliquid OI 膨胀 > 15% → 减半仓
-  - SOL 现货止损：-5%
+  - BTC-PERP 1h 涨幅 > 2% → 下一小时做多 SOL-PERP（Hyperliquid 永续合约，**非 DEX 现货**）
+  - SOL-PERP 流动性不足 → 跳过信号
+  - Hyperliquid OI 膨胀 > 15% → 减半仓（**需 M3.0 确认 OI 数据可用**）
+  - SOL-PERP 止损：-5%（永续合约止损，**非现货**）
 参数：同上
-```
+
+> ⚠️ 本案例仅使用 Hyperliquid **永续合约**，不涉及 DEX 现货交易。止损和开仓均为合约操作。
 
 ---
 
@@ -326,6 +348,11 @@ class BacktestConfidence:
 | 10 | 回测时间窗口不一致 | ✅ 与 HL 实际上线时间对齐 |
 | 11 | 多币种保证金计算 | ✅ 简化假设，标注局限性 |
 | 12 | PDF 报告 | ✅ 明确 MD 优先，PDF 可选 |
+| 13 | 资金费率多空方向错误 | ✅ 修正：正费率时多仓付钱给空仓 |
+| 14 | 回测时间基准错误 | ✅ 改为按配置的 K 线周期遍历（默认1h），非 wall-clock hour |
+| 15 | OI 数据源缺失 | ✅ M3.0 增加验证步骤；Case 规则标注需确认可用性 |
+| 16 | commission_rate 双向成本 | ✅ 明确 "手续费 0.04% = 单向，开平各收一次 = 0.08%" |
+| 17 | Case 3 现货/合约混淆 | ✅ 澄清为 Hyperliquid SOL-PERP 永续合约，非 DEX 现货 |
 
 ---
 
