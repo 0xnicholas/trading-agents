@@ -113,6 +113,22 @@ def health():
 
 ## M4.3: Prometheus Metrics
 
+### 实现
+
+Web 框架：FastAPI
+
+```python
+from fastapi import FastAPI
+app = FastAPI()
+
+@app.get("/metrics")
+def metrics():
+    return Response(
+        content=generate_latest(),
+        media_type=CONTENT_TYPE_LATEST
+    )
+```
+
 ### 核心指标
 ```
 # 交易指标
@@ -149,8 +165,8 @@ orders_total = Counter(
 ### 告警规则
 | 告警 | 条件 | 严重度 | 通知 |
 |------|------|--------|------|
-| 连续亏损 | 5笔亏损 > 10% | HIGH | Discord |
-| API 错误率 | > 10% in 5min | MEDIUM | Discord |
+| 连续亏损 | N笔亏损 > X% (可配置) | HIGH | Discord |
+| API 错误率 | > X% in Ymin (可配置) | MEDIUM | Discord |
 | 响应超时 | > 30s | MEDIUM | Discord |
 | 缓存命中率低 | < 50% in 1h | LOW | 日志 |
 | 磁盘空间不足 | < 1GB | HIGH | Discord |
@@ -163,6 +179,14 @@ class AlertConfig:
     discord_webhook: str | None = None
     slack_webhook: str | None = None
     alert_level: str = "HIGH"  # LOW/MEDIUM/HIGH
+
+    # 可配置阈值
+    consecutive_loss_threshold: int = 5
+    consecutive_loss_pct_threshold: float = 0.10  # 10%
+    api_error_rate_threshold: float = 0.10  # 10%
+    api_error_window_minutes: int = 5
+    disk_space_threshold_gb: float = 1.0
+    alert_cooldown_seconds: int = 60  # 告警冷却时间
 ```
 
 ---
@@ -176,7 +200,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
-CMD ["python", "-m", "tradingagents_crypto"]
+CMD ["python", "-m", "tradingagents_crypto.api.server"]
 ```
 
 ### Docker Compose（开发环境）
@@ -191,7 +215,17 @@ services:
 
   prometheus:
     image: prom/prometheus
+    prometheus:
+    image: prom/prometheus
     ports:
+      - "9090:9090"
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  services:
       - "9090:9090"
 ```
 
@@ -218,6 +252,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - name: Install dependencies
+        run: pip install -r requirements.txt
       - name: Run tests
         run: pytest --cov=tradingagents_crypto
       - name: Lint
@@ -228,8 +264,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
       - name: Build Docker
         run: docker build -t crypto-trading:${{ github.sha }} .
+```
+
+### Secrets 管理
+```yaml
+env:
+  OPENAI_API_KEY: \${{ secrets.OPENAI_API_KEY }}
+  HL_API_KEY: \${{ secrets.HL_API_KEY }}
 ```
 
 ---
@@ -304,18 +349,18 @@ class SharedState:
 ### Memory 锁
 ```python
 # 并行读取，串行写入
-from threading import RWLock
+import asyncio
 
 class SharedMemory:
     def __init__(self):
-        self._lock = RWLock()
+        self._lock = asyncio.Lock()
 
     def read(self, key) -> Any:
-        with self._lock.read:
+        with self._lock:
             return self._data.get(key)
 
     def write(self, key, value):
-        with self._lock.write:
+        with self._lock:
             self._data[key] = value
 ```
 
@@ -392,6 +437,16 @@ async def run_analysts_parallel(symbol: str):
     ]
     results = await asyncio.gather(*tasks, return_exceptions=True)
     return results
+
+# 向后兼容：同步 Analyst 适配器
+# 老代码继续工作，无需修改
+class SyncAnalystAdapter:
+    """将同步 Analyst 适配为异步接口"""
+    def __init__(self, sync_analyst):
+        self._analyst = sync_analyst
+
+    async def arun(self, symbol: str):
+        return await asyncio.to_thread(self._analyst.run, symbol)
 ```
 
 ---
@@ -481,6 +536,31 @@ Confidence: 85%
 
 ---
 
+## 实施顺序
+
+> ⚠️ 注意：M4.13 人工审批应早于 M4.11，因为 paper trading 也需要审批机制。
+
+```
+Phase 4B (Infrastructure)
+├── M4.1 结构化日志
+├── M4.2 健康检查端点
+├── M4.3 Prometheus Metrics
+├── M4.4 告警系统
+├── M4.5 Docker 化
+└── M4.6 CI/CD
+
+Phase 4A (Multi-Agent)
+├── M4.7 Agent 工厂
+├── M4.8 共享 Memory
+├── M4.9 Meta-Agent
+└── M4.10 并行执行
+
+Phase 4C (Live Trading)
+├── M4.13 人工审批  ← 提前（paper trading 也需要）
+├── M4.11 Paper Trading
+└── M4.12 实盘连接
+```
+
 ## 目录结构
 
 ```
@@ -529,3 +609,4 @@ tradingagents_crypto/
 | 日期 | 版本 | 变更 |
 |------|------|------|
 | 2026-04-02 | v1.0 | 初始版本 |
+| 2026-04-02 | v1.1 | 审查修复：M4.8 asyncio.Lock兼容性、Phase 4C顺序修正、AlertConfig可配置阈值、向后兼容适配器 |

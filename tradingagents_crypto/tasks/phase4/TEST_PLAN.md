@@ -45,9 +45,10 @@
 | ID | 测试内容 | 输入 | 预期结果 |
 |----|---------|------|---------|
 | T_ALERT_01 | Webhook 发送 | 触发告警 | Discord 收到消息 |
-| T_ALERT_02 | 连续亏损检测 | 5笔亏损 | 告警触发 |
-| T_ALERT_03 | API 错误率检测 | 50% 错误 | 告警触发 |
+| T_ALERT_02 | 连续亏损检测 | N笔亏损（可配置） | 告警触发 |
+| T_ALERT_03 | API 错误率检测 | X% 错误（可配置） | 告警触发 |
 | T_ALERT_04 | 告警去重 | 同一告警 1min 内 | 只发一次 |
+| T_ALERT_05 | 阈值可配置 | 修改配置 | 新阈值生效 |
 
 ### M4.5 Docker
 
@@ -86,6 +87,7 @@
 | T_MEMORY_02 | 并发写入 | 2线程同时写 | 无数据丢失 |
 | T_MEMORY_03 | 读写锁 | 1写 2读并发 | 无死锁 |
 | T_MEMORY_04 | trace_id 隔离 | 2个 trace | 状态不混淆 |
+| T_MEMORY_05 | asyncio.Lock | async context | 正常读写 |
 
 ### M4.9 Meta-Agent
 
