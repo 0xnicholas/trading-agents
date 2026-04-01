@@ -32,7 +32,9 @@ def get_hl_market_data(symbol: str, date: str = "", backtest_mode: bool = False)
         Formatted markdown string with all market data
     """
     try:
-        data = get_hl_data(symbol, date or "2026-04-01", backtest_mode=backtest_mode)
+        # Default to today if no date provided
+        target_date = date if date else datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        data = get_hl_data(symbol, target_date, backtest_mode=backtest_mode)
 
         lines = [
             f"# {symbol} Market Data",
@@ -78,7 +80,7 @@ def get_hl_market_data(symbol: str, date: str = "", backtest_mode: bool = False)
 
     except Exception as e:
         logger.error(f"Failed to get market data for {symbol}: {e}")
-        return f"Error retrieving market data for {symbol}: {e}"
+        return f"Unable to retrieve market data for {symbol}. Please try again later."
 
 
 def get_funding_details(symbol: str) -> str:
@@ -126,7 +128,7 @@ def get_funding_details(symbol: str) -> str:
 
     except Exception as e:
         logger.error(f"Failed to get funding details for {symbol}: {e}")
-        return f"Error: {e}"
+        return f"Unable to retrieve funding details for {symbol}. Please try again later."
 
 
 def get_orderbook_analysis(symbol: str, depth: int = 20) -> str:
@@ -189,7 +191,7 @@ def get_orderbook_analysis(symbol: str, depth: int = 20) -> str:
 
     except Exception as e:
         logger.error(f"Failed to get orderbook for {symbol}: {e}")
-        return f"Error: {e}"
+        return f"Unable to retrieve orderbook data for {symbol}. Please try again later."
 
 
 # Tool registry for agents

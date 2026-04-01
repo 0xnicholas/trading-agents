@@ -111,13 +111,14 @@ class HLClient:
         """
         return self.info.l2_snapshot(symbol)
 
-    def get_recent_trades(self, symbol: str, limit: int = 100) -> list[dict]:
+    def get_recent_trades(self, symbol: str, limit: int = 100, lookback_ms: int = 3600_000) -> list[dict]:
         """
         Get recent trades.
 
         Args:
             symbol: Coin name
             limit: Max number of trades
+            lookback_ms: Lookback window in milliseconds (default: 1 hour)
 
         Returns:
             List of trade dicts
@@ -125,7 +126,7 @@ class HLClient:
         # Note: SDK may not have this method directly
         # Falls back to candles with n (num trades) field
         end_ms = now_ms()
-        start_ms = end_ms - 3600 * 1000  # 1 hour
+        start_ms = end_ms - lookback_ms  # Configurable lookback
         candles = self.get_candles(symbol, "1h", start_ms, end_ms)
         return [{"n": c.get("n", 0), "px": c.get("c"), "sz": c.get("v")}
                 for c in candles if c.get("n", 0) > 0]

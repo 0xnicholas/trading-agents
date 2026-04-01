@@ -42,11 +42,15 @@ class CoinCapClient:
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(min=1, max=10),
-        retry=retry_if_exception_type((requests.RequestException, requests.Timeout)),
+        retry=retry_if_exception_type((
+            requests.RequestException,
+            requests.Timeout,
+            requests.HTTPError,  # Includes 429 Rate Limit
+        )),
         reraise=True,
     )
     def _get(self, endpoint: str, params: dict | None = None) -> dict:
-        """Make a GET request with retry on network errors."""
+        """Make a GET request with retry on network errors and rate limits."""
         url = f"{self.BASE_URL}{endpoint}"
         response = self.session.get(url, params=params, timeout=10)
         response.raise_for_status()

@@ -38,6 +38,25 @@ class LLMConfig:
     openai_api_key: str | None = None
     anthropic_api_key: str | None = None
 
+    def _redact_key(self, key: str | None) -> str:
+        """Redact API key for safe logging."""
+        if key is None:
+            return "<not set>"
+        if len(key) <= 8:
+            return "****"
+        return key[:4] + "****" + key[-4:]
+
+    def safe_repr(self) -> dict:
+        """Return a dict with secrets redacted for logging."""
+        return {
+            "provider": self.provider,
+            "model_name": self.model_name,
+            "temperature": self.temperature,
+            "max_tokens": self.max_tokens,
+            "openai_api_key": self._redact_key(self.openai_api_key),
+            "anthropic_api_key": self._redact_key(self.anthropic_api_key),
+        }
+
 
 @dataclass
 class TradingConfig:
@@ -150,3 +169,22 @@ def reset_config() -> None:
     """Reset the global config (useful for testing)."""
     global _config
     _config = None
+
+
+def config_safe_dict(config: Config) -> dict:
+    """Return a safe dict representation of config with secrets redacted."""
+    return {
+        "hyperliquid": {
+            "use_testnet": config.hyperliquid.use_testnet,
+            "cache_ttl_seconds": config.hyperliquid.cache_ttl_seconds,
+            "requests_per_second": config.hyperliquid.requests_per_second,
+        },
+        "llm": config.llm.safe_repr(),
+        "trading": {
+            "default_symbol": config.trading.default_symbol,
+            "max_position_size_pct": config.trading.max_position_size_pct,
+            "max_leverage": config.trading.max_leverage,
+            "backtest_mode": config.trading.backtest_mode,
+        },
+        "agent": config.agent.safe_dict(),
+    }

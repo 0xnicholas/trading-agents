@@ -199,8 +199,10 @@ class BacktestEngine:
         # Pre-calculate indicators
         self._indicators_cache = self._calculate_indicators(candles)
 
-        # Main backtest loop
-        for idx, row in candles.iterrows():
+        # Main backtest loop - use integer index for efficiency
+        candle_indices = candles.index.tolist()
+        for i, idx in enumerate(candle_indices):
+            row = candles.loc[idx]
             ts = row["timestamp"]
             current_price = row["close"]
 
@@ -225,11 +227,11 @@ class BacktestEngine:
             # Get indicators for this timestamp
             indicators = self._get_indicators_at(idx, candles)
 
-            # Get strategy signal
+            # Get strategy signal - pass slice using iloc (efficient, no copy)
             try:
                 signal = strategy_fn(
                     timestamp=int(ts.timestamp()),
-                    candles=candles.loc[:idx],  # Historical data up to now
+                    candles=candles.iloc[:i+1],  # Efficient slice, no copy
                     funding=funding,
                     oi=oi,
                     indicators=indicators,

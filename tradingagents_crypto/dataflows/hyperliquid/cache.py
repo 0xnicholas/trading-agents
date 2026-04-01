@@ -58,11 +58,15 @@ class CacheManager:
         """)
         conn.commit()
 
+        # Counter for periodic cleanup (every 100 calls)
+        self._get_calls = 0
+
     def get(self, key: str) -> Any | None:
         """
         Get cached value if exists and not expired.
 
         Returns None if not found or expired.
+        Lazy-cleanup: every 100 calls, expired entries are purged.
         """
         try:
             conn = self._get_conn()
@@ -84,11 +88,20 @@ class CacheManager:
         except Exception as e:
             logger.warning(f"Cache get error for key {key}: {e}")
             return None
+        finally:
+            # Periodic cleanup every 100 calls
+            self._get_calls += 1
+            if self._get_calls >= 100:
+                self._get_calls = 0
+                self.clear_expired()
 
     def set(self, key: str, value: Any, ttl_seconds: int):
-        """Set cache value with TTL in seconds."""
-        if ttl_seconds <= 0:
-            return  # Don't cache if TTL is 0
+        """Set cache value with TTL in seconds.
+
+        Note: TTL=0 means no expiration (use with caution).
+        """
+        if ttl_seconds < 0:
+            return  # Negative TTL is invalid
 
         try:
             conn = self._get_conn()
