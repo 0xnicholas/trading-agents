@@ -9,15 +9,15 @@ services:
       - HL_USE_TESTNET=1
       - REDIS_URL=redis://redis:6379
       - LOG_LEVEL=INFO
-      - LOG_FORMAT=json
+      - LOG_FORMAT=true
     depends_on:
       redis:
         condition: service_healthy
     volumes:
-      - ../data:/app/data
+      - /root/TradingAgents/tradingagents_crypto/data:/app/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health/live').raise_for_status()"]
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health/live', timeout=3).raise_for_status()"]
       interval: 30s
       timeout: 5s
       retries: 3

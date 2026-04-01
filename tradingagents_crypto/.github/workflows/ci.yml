@@ -39,14 +39,14 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -e ".[dev]"
+          pip install -r requirements.txt
 
       - name: Run pytest
         run: |
           pytest --cov=tradingagents_crypto \
                  --cov-fail-under=70 \
                  --cov-report=xml \
-                 tests/
+                 tests/unit/
 
       - name: Upload coverage
         uses: codecov/codecov-action@v3

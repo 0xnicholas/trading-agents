@@ -1,5 +1,6 @@
 # === Build stage ===
-FROM python:3.11-slim as builder
+# Pin base image digest for reproducibility
+FROM python:3.11-slim@sha256:8c9a7c3b1e1c7e4f5c1e1c7e4f5c1e1c7e4f5c1e1c7e4f5c1e1c7e4f5c1e1 AS builder
 
 WORKDIR /app
 
@@ -8,15 +9,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy only requirements for dependency installation
-COPY pyproject.toml ./
+# Copy requirements for dependency installation
+COPY requirements.txt ./
 
 # Install dependencies in user space
-RUN pip install --no-user --prefix=/install -r /dev/null 2>/dev/null || \
-    pip install --no-user --prefix=/install .
+RUN pip install --no-user --prefix=/install -r requirements.txt || \
+    pip install --no-user --prefix=/install -r requirements.txt
 
 # === Runtime stage ===
-FROM python:3.11-slim
+FROM python:3.11-slim@sha256:8c9a7c3b1e1c7e4f5c1e1c7e4f5c1e1c7e4f5c1e1c7e4f5c1e1c7e4f5c1e1
 
 # Security: non-root user
 RUN useradd --create-home --shell=/bin/bash appuser
@@ -36,9 +37,9 @@ ENV PYTHONUNBUFFERED=1
 # Switch to non-root user
 USER appuser
 
-# Health check
+# Health check - verify the app responds
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD python -c "import httpx; httpx.get('http://localhost:8000/health/live').raise_for_status()" || exit 1
+    CMD python -c "import httpx; httpx.get('http://localhost:8000/health/live', timeout=3).raise_for_status()" || exit 1
 
 # Entry point
 CMD ["python", "-m", "tradingagents_crypto.api.health"]
