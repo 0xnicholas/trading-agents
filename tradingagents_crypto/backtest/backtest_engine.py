@@ -11,9 +11,6 @@ from typing import Callable, Literal, Optional
 import pandas as pd
 import numpy as np
 
-from tradingagents_crypto.backtest.funding_simulator import calc_funding_pnl
-from tradingagents_crypto.backtest.slippage_estimator import estimate_slippage
-
 logger = logging.getLogger(__name__)
 
 
@@ -87,11 +84,42 @@ class BacktestConfig:
     leverage: int = 5
     max_position_size_pct: float = 0.20  # Max 20% of equity per position
     funding_rate: float = 0.0001      # Default 8h funding rate
+    default_symbol: str = "BTC"        # Default symbol for single-asset backtest
+
+
+@dataclass
+class BacktestPosition:
+    """Internal position representation during backtest."""
+    symbol: str
+    side: Literal["long", "short"]
+    size: float           # In units
+    entry_price: float
+    current_price: float
+    leverage: int
+    margin_usd: float
+    entry_time: int
+    unrealized_pnl: float = 0.0
+    entry_reason: str = "signal"
+    stop_loss_pct: float | None = None
+    take_profit_pct: float | None = None
+
+    @property
+    def notional_value(self) -> float:
+        """Notional value of the position."""
+        return self.size * self.current_price
+
+    @property
+    def notional_value_usd(self) -> float:
+        """Notional value in USD terms."""
+        return self.size * self.current_price
 
 
 class BacktestEngine:
     """
     Rule-based backtest engine for crypto perpetuals.
+
+    Supports multi-position backtesting with multiple symbols.
+    Slippage is incorporated into execution price, not deducted separately.
 
     Usage:
         def my_strategy(timestamp, candles, funding, oi, indicators):
@@ -109,15 +137,14 @@ class BacktestEngine:
     def __init__(self, config: Optional[BacktestConfig] = None):
         self.config = config or BacktestConfig()
 
-        # State
+        # State - supports multiple positions
         self._equity = 0.0
         self._cash = 0.0
-        self._position = None  # Current position
+        self._positions: dict[str, BacktestPosition] = {}  # symbol -> position
         self._equity_curve = []
         self._trades = []
-
-        # Indicators cache
         self._indicators_cache = {}
+        self._last_funding_time = None
 
     def run(
         self,
@@ -147,10 +174,11 @@ class BacktestEngine:
         # Initialize
         self._equity = self.config.initial_capital
         self._cash = self.config.initial_capital
-        self._position = None
+        self._positions = {}
         self._equity_curve = []
         self._trades = []
         self._indicators_cache = {}
+        self._last_funding_time = None
 
         # Filter by date if specified
         if start_date:
@@ -176,11 +204,20 @@ class BacktestEngine:
             ts = row["timestamp"]
             current_price = row["close"]
 
-            # Update equity based on current position
+            # Update equity based on current positions
             self._update_equity(current_price, ts)
 
             # Get funding rate for this timestamp
             funding = funding_lookup.get(ts, self.config.funding_rate)
+
+            # Apply funding cost to all open positions
+            if self._last_funding_time is not None:
+                hours_elapsed = (ts - self._last_funding_time).total_seconds() / 3600
+                if hours_elapsed >= 8:  # Funding settles every 8h
+                    self._apply_funding_cost(funding, hours_elapsed)
+                    self._last_funding_time = ts
+            else:
+                self._last_funding_time = ts
 
             # Get OI
             oi = oi_lookup.get(ts, None) if oi_available else None
@@ -208,16 +245,17 @@ class BacktestEngine:
             self._process_signal(signal, current_price, ts, funding)
 
             # Record equity
+            total_position_value = sum(p.notional_value_usd for p in self._positions.values())
             self._equity_curve.append({
                 "timestamp": ts,
                 "equity": self._equity,
-                "position_value": self._position.notional_value if self._position else 0,
+                "position_value": total_position_value,
             })
 
-        # Close any open position at final price
-        if self._position:
+        # Close all open positions at final price
+        for symbol in list(self._positions.keys()):
             final_price = candles.iloc[-1]["close"]
-            self._close_position(final_price, candles.iloc[-1]["timestamp"], "end_of_backtest")
+            self._close_position(symbol, final_price, candles.iloc[-1]["timestamp"], "end_of_backtest")
 
         # Calculate metrics
         if self._equity_curve:
@@ -292,17 +330,35 @@ class BacktestEngine:
         return result
 
     def _update_equity(self, current_price: float, timestamp: pd.Timestamp) -> None:
-        """Update equity based on current position value."""
-        if self._position is None:
-            return
+        """Update equity based on all open positions."""
+        total_unrealized = 0.0
+        for pos in self._positions.values():
+            pos.current_price = current_price
+            if pos.side == "long":
+                unrealized = (current_price - pos.entry_price) * pos.size
+            else:
+                unrealized = (pos.entry_price - current_price) * pos.size
+            pos.unrealized_pnl = unrealized
+            total_unrealized += unrealized
 
-        if self._position.side == "long":
-            unrealized = (current_price - self._position.entry_price) * self._position.size
-        else:
-            unrealized = (self._position.entry_price - current_price) * self._position.size
+        self._equity = self._cash + total_unrealized
 
-        self._position.unrealized_pnl = unrealized
-        self._equity = self._cash + unrealized + self._position.margin_usd
+    def _apply_funding_cost(self, funding_rate: float, hours_elapsed: float) -> None:
+        """Apply funding cost to all open positions."""
+        for pos in self._positions.values():
+            position_value = pos.notional_value_usd
+            if pos.side == "long":
+                # Longs pay when rate is positive
+                cost = -funding_rate * position_value
+            else:
+                # Shorts receive when rate is positive
+                cost = funding_rate * position_value
+
+            # Scale by time elapsed (assuming 8h periods)
+            periods = hours_elapsed / 8.0
+            total_cost = cost * periods
+
+            self._cash += total_cost
 
     def _process_signal(
         self,
@@ -315,63 +371,69 @@ class BacktestEngine:
         if signal.action == "hold":
             return
 
-        elif signal.action == "open_long":
-            if self._position is not None:
-                # Close existing position first
-                self._close_position(current_price, timestamp, "reversal")
-            self._open_position("long", current_price, timestamp, signal.size_pct, funding)
+        symbol = self.config.default_symbol
+
+        if signal.action == "open_long":
+            if symbol in self._positions:
+                self._close_position(symbol, current_price, timestamp, "reversal")
+            self._open_position(symbol, "long", current_price, timestamp, signal.size_pct)
 
         elif signal.action == "open_short":
-            if self._position is not None:
-                self._close_position(current_price, timestamp, "reversal")
-            self._open_position("short", current_price, timestamp, signal.size_pct, funding)
+            if symbol in self._positions:
+                self._close_position(symbol, current_price, timestamp, "reversal")
+            self._open_position(symbol, "short", current_price, timestamp, signal.size_pct)
 
         elif signal.action == "close":
-            if self._position is not None:
-                self._close_position(current_price, timestamp, "signal")
+            if symbol in self._positions:
+                self._close_position(symbol, current_price, timestamp, "signal")
 
         elif signal.action == "reduce":
-            if self._position is not None:
-                self._reduce_position(signal.size_pct, current_price, timestamp, funding)
+            if symbol in self._positions:
+                self._close_position(symbol, current_price, timestamp, "reduce")
 
     def _open_position(
         self,
+        symbol: str,
         side: Literal["long", "short"],
         price: float,
         timestamp: pd.Timestamp,
         size_pct: float,
-        funding: float,
     ) -> None:
-        """Open a new position."""
+        """Open a new position with slippage incorporated into execution price."""
         # Calculate position size
         max_size = self._equity * self.config.max_position_size_pct
-        size = self._equity * size_pct * self.config.leverage
-        size = min(size, max_size)
+        size_usd = self._equity * size_pct * self.config.leverage
+        size_usd = min(size_usd, max_size)
 
-        if size <= 0:
+        if size_usd <= 0:
             return
 
         # Calculate margin required
-        margin_required = size / self.config.leverage
+        margin_required = size_usd / self.config.leverage
 
-        # Slippage cost
+        # Slippage: incorporate into execution price (not deducted separately)
         slippage_bps = self.config.slippage_bps
-        slippage_cost = size * (slippage_bps / 10000)
+        if side == "long":
+            # Longs pay higher price
+            execution_price = price * (1 + slippage_bps / 10000)
+        else:
+            # Shorts receive lower price
+            execution_price = price * (1 - slippage_bps / 10000)
 
-        # Commission (entry)
-        commission = size * self.config.commission_rate
+        # Commission (deducted from cash)
+        commission = size_usd * self.config.commission_rate
 
-        # Deduct costs from cash
-        total_cost = margin_required + commission + slippage_cost
-        self._cash -= total_cost
+        # Deduct margin + commission from cash
+        self._cash -= (margin_required + commission)
 
         # Create position
-        self._position = BacktestPosition(
-            symbol="BTC",
+        size_units = size_usd / execution_price
+        self._positions[symbol] = BacktestPosition(
+            symbol=symbol,
             side=side,
-            size=size / price,  # Convert to units
-            entry_price=price,
-            current_price=price,
+            size=size_units,
+            entry_price=execution_price,
+            current_price=execution_price,
             leverage=self.config.leverage,
             margin_usd=margin_required,
             entry_time=int(timestamp.timestamp()),
@@ -381,36 +443,44 @@ class BacktestEngine:
             take_profit_pct=None,
         )
 
-        logger.debug(f"Opened {side} position: {self._position.size} @ {price}")
+        logger.debug(f"Opened {side} {symbol}: {size_units} @ {execution_price}")
 
     def _close_position(
         self,
+        symbol: str,
         price: float,
         timestamp: pd.Timestamp,
         reason: str,
     ) -> None:
-        """Close the current position."""
-        if self._position is None:
+        """Close a position with slippage incorporated into execution price."""
+        if symbol not in self._positions:
             return
 
-        pos = self._position
+        pos = self._positions[symbol]
 
-        # Calculate PnL
+        # Slippage: incorporate into execution price
+        slippage_bps = self.config.slippage_bps
         if pos.side == "long":
-            pnl = (price - pos.entry_price) * pos.size
+            # Longs sell at lower price
+            execution_price = price * (1 - slippage_bps / 10000)
         else:
-            pnl = (pos.entry_price - price) * pos.size
+            # Shorts buy at higher price
+            execution_price = price * (1 + slippage_bps / 10000)
 
-        # Slippage on exit
-        slippage_cost = pos.size * price * (self.config.slippage_bps / 10000)
+        # Calculate PnL at execution price
+        if pos.side == "long":
+            pnl = (execution_price - pos.entry_price) * pos.size
+        else:
+            pnl = (pos.entry_price - execution_price) * pos.size
 
-        # Commission (exit)
-        commission = pos.size * price * self.config.commission_rate
+        # Commission on exit
+        size_usd = pos.size * execution_price
+        commission = size_usd * self.config.commission_rate
 
-        # Realized PnL
-        realized_pnl = pnl - commission - slippage_cost
+        # Realized PnL after commission
+        realized_pnl = pnl - commission
 
-        # Update cash
+        # Update cash: return margin + realized PnL
         self._cash += pos.margin_usd + realized_pnl
 
         # Create trade record
@@ -419,36 +489,21 @@ class BacktestEngine:
             exit_time=int(timestamp.timestamp()),
             symbol=pos.symbol,
             side=pos.side,
-            size=pos.size * price,
+            size=size_usd,
             entry_price=pos.entry_price,
-            exit_price=price,
+            exit_price=execution_price,
             entry_reason=pos.entry_reason,
             pnl=pnl,
             commission=commission,
-            slippage_cost=slippage_cost,
+            slippage_cost=abs(price - execution_price) * pos.size,  # Slippage cost in price terms
             funding_cost=0.0,
             realized_pnl=realized_pnl,
         )
         self._trades.append(trade)
 
-        logger.debug(f"Closed {pos.side} position: {reason}, PnL={realized_pnl:.2f}")
+        logger.debug(f"Closed {pos.side} {symbol}: {reason}, PnL={realized_pnl:.2f}")
 
-        self._position = None
-
-    def _reduce_position(
-        self,
-        reduce_pct: float,
-        price: float,
-        timestamp: pd.Timestamp,
-        funding: float,
-    ) -> None:
-        """Reduce position by a percentage."""
-        if self._position is None or reduce_pct >= 1.0:
-            self._close_position(price, timestamp, "reduce")
-            return
-
-        # For simplicity, just close fully
-        self._close_position(price, timestamp, "reduce")
+        del self._positions[symbol]
 
     def _calculate_metrics(self, equity_df: pd.DataFrame) -> BacktestMetrics:
         """Calculate performance metrics."""
@@ -463,7 +518,7 @@ class BacktestEngine:
         # Sharpe ratio
         returns = equity.pct_change().dropna()
         if len(returns) > 0 and returns.std() > 0:
-            sharpe_ratio = (returns.mean() / returns.std()) * np.sqrt(365 * 24)  # Hourly
+            sharpe_ratio = (returns.mean() / returns.std()) * np.sqrt(365 * 24)
         else:
             sharpe_ratio = 0.0
 
@@ -483,9 +538,8 @@ class BacktestEngine:
             total_losses = abs(sum(t.realized_pnl for t in losing_trades))
             profit_factor = total_wins / total_losses if total_losses > 0 else 0.0
 
-            # Average trade duration
             durations = [t.exit_time - t.entry_time for t in self._trades if t.exit_time]
-            avg_duration = np.mean(durations) / 3600 if durations else 0.0  # Convert to hours
+            avg_duration = np.mean(durations) / 3600 if durations else 0.0
         else:
             win_rate = 0.0
             profit_factor = 0.0
@@ -506,13 +560,11 @@ class BacktestEngine:
 
     def _estimate_confidence(self, candles: pd.DataFrame) -> BacktestConfidence:
         """Estimate confidence level of results."""
-        # Check for data gaps
         expected_bars = len(candles)
         actual_gaps = 0
 
         if expected_bars > 1:
             time_diffs = candles["timestamp"].diff().dt.total_seconds()
-            # Expected hourly diff = 3600 seconds
             expected_diff = 3600
             large_gaps = time_diffs[time_diffs > expected_diff * 2]
             actual_gaps = len(large_gaps)
@@ -525,28 +577,6 @@ class BacktestEngine:
             funding_history="real" if completeness > 0.95 else "partial",
             leverage_effects="simplified",
         )
-
-
-@dataclass
-class BacktestPosition:
-    """Internal position representation during backtest."""
-    symbol: str
-    side: Literal["long", "short"]
-    size: float           # In units
-    entry_price: float
-    current_price: float
-    leverage: int
-    margin_usd: float
-    entry_time: int
-    unrealized_pnl: float = 0.0
-    entry_reason: str = "signal"
-    stop_loss_pct: float | None = None
-    take_profit_pct: float | None = None
-
-    @property
-    def notional_value(self) -> float:
-        """Notional value of the position."""
-        return self.size * self.current_price
 
 
 def run_backtest(

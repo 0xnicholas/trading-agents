@@ -61,12 +61,12 @@ class TestBacktestDataCache:
         """T_CACHE_01: Save and load candles."""
         cache = BacktestDataCache(cache_dir=temp_cache_dir)
 
-        # Save
+        # Save with end date exclusive semantics (end=2024-01-05 means through Jan 4)
         path = cache.save_candles(sample_candles, "BTC", "1h", "2024-01-01", "2024-01-05")
         assert path.exists()
 
-        # Load
-        loaded = cache.load_candles("BTC", "1h", "2024-01-01", "2024-01-05")
+        # Load with end=2024-01-06 to include all Jan 5 candles (exclusive semantics)
+        loaded = cache.load_candles("BTC", "1h", "2024-01-01", "2024-01-06")
         assert loaded is not None
         assert len(loaded) == len(sample_candles)
 

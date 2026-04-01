@@ -37,7 +37,7 @@ class HVAnalysis:
     verdict: str               # Trading recommendation
 
 
-def analyze_hv(candles_1h: pd.DataFrame, hv_percentile_override: Optional[int] = None) -> HVAnalysis:
+def analyze_hv(candles_1h: pd.DataFrame) -> HVAnalysis:
     """
     Calculate historical volatility and ATR from 1h candle data.
 
@@ -72,10 +72,6 @@ def analyze_hv(candles_1h: pd.DataFrame, hv_percentile_override: Optional[int] =
         hv_percentile = int((rolling_hv < current_hv).mean() * 100)
     else:
         hv_percentile = 50  # Default to median
-
-    # Override percentile if provided (for testing)
-    if hv_percentile_override is not None:
-        hv_percentile = hv_percentile_override
 
     # Calculate ATR (14 periods)
     high_low = hv_window["high"] - hv_window["low"]
