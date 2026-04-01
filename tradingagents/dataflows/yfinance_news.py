@@ -1,5 +1,6 @@
 """yfinance-based news data fetching functions."""
 
+__all__ = ['_extract_article_data', 'get_news_yfinance', 'get_global_news_yfinance']
 import yfinance as yf
 from datetime import datetime
 from dateutil.relativedelta import relativedelta

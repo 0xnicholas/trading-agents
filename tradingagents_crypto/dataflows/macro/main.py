@@ -7,6 +7,7 @@ Aggregates all macro market data:
 - Stablecoin Flow
 - Cross-chain correlations
 """
+__all__ = ['_safe_get', 'get_macro_data']
 import logging
 from datetime import datetime, timezone
 from typing import Any, Callable, TypeVar

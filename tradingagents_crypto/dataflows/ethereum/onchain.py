@@ -5,6 +5,7 @@ Data sources:
 - CoinCap: Gas price proxy, ETH staking
 - DeFiLlama: TVL
 """
+__all__ = ['get_gas_price', 'get_staking_ratio', 'get_defi_tvl', 'get_active_addresses']
 import logging
 
 from tradingagents_crypto.dataflows.coincap import CoinCapClient

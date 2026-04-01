@@ -3,6 +3,7 @@ Hyperliquid candlestick data.
 
 High-level functions for getting and caching candle data.
 """
+__all__ = ['get_candles', 'get_candles_batch']
 import logging
 from typing import Annotated
 

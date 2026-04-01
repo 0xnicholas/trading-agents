@@ -3,6 +3,7 @@ Ethereum funding rate data.
 
 Data source: Bybit (primary, since Binance is blocked)
 """
+__all__ = ['get_binance_funding', 'get_eth_funding_rate']
 import logging
 
 from tradingagents_crypto.dataflows.bybit import BybitClient

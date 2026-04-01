@@ -6,6 +6,7 @@ Aggregates all SOL-related data:
 - DEX liquidity (GeckoTerminal - placeholder)
 - Meme coins (GeckoTerminal - placeholder)
 """
+__all__ = ['_safe_get', 'get_sol_data']
 import logging
 from datetime import datetime, timezone
 from typing import Any, Callable, TypeVar

@@ -3,6 +3,7 @@ Hyperliquid open interest data.
 
 High-level functions for OI and asset context data.
 """
+__all__ = ['get_open_interest', 'get_all_open_interest']
 import logging
 from .api import HLClient
 from .cache import CacheManager

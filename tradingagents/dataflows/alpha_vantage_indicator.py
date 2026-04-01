@@ -1,3 +1,4 @@
+__all__ = ['get_indicator']
 from .alpha_vantage_common import _make_api_request
 
 def get_indicator(

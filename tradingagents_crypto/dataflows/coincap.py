@@ -11,6 +11,7 @@ API Docs: https://docs.coincap.io/
 Base URL: https://api.coincap.io/v2
 Rate Limit: 300 requests/minute
 """
+__all__ = ['CoinCapClient', 'get_asset', 'get_eth_price', 'get_sol_price', 'get_btc_dominance', 'get_stablecoin_supplies', 'get_eth_staking_ratio']
 import logging
 from typing import Any
 

@@ -8,6 +8,7 @@ Used as primary data source for:
 API Docs: https://bybit-exchange.github.io/docs/
 Base URL: https://api.bybit.com
 """
+__all__ = ['BybitClient', 'get_funding_rate', 'get_eth_funding', 'get_btc_funding']
 import logging
 from datetime import datetime, timezone
 

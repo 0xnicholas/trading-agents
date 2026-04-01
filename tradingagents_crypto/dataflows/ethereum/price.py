@@ -3,6 +3,7 @@ Ethereum price data.
 
 Data source: CoinCap.io (primary, since CoinGecko is blocked)
 """
+__all__ = ['get_eth_price', 'check_price_deviation']
 import logging
 from typing import Annotated
 

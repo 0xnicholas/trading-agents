@@ -5,6 +5,7 @@ Data sources:
 - GeckoTerminal: DEX pools and liquidity
 - Note: Jupiter is blocked, CoinCap as fallback
 """
+__all__ = ['get_dex_liquidity', 'get_pool_info']
 import logging
 
 logger = logging.getLogger(__name__)

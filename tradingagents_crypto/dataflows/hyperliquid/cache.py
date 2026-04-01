@@ -3,6 +3,7 @@ Hyperliquid dataflows SQLite cache.
 
 Provides TTL-based caching for HL API responses.
 """
+__all__ = ['CacheManager', 'get', 'set', 'delete', 'clear_expired', 'clear_all', 'candle_key', 'funding_key', 'oi_key']
 import json
 import logging
 import os

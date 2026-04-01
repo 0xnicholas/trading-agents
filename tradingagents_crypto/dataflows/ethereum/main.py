@@ -6,6 +6,7 @@ Aggregates all ETH-related data:
 - Funding rate (Bybit)
 - On-chain metrics
 """
+__all__ = ['_safe_get', 'get_eth_data']
 import logging
 from datetime import datetime, timezone
 from typing import Any, Callable, TypeVar

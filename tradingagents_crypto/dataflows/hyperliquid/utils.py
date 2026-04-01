@@ -3,8 +3,10 @@ Hyperliquid dataflows utilities.
 
 Time conversion, retry logic, and helpers.
 """
+__all__ = ['ms_to_dt', 'dt_to_ms', 'now_ms', 'calc_time_range', 'is_valid_interval', 'get_http_session', 'retry_on_rate_limit', 'http_get']
 import time
 import logging
+import threading
 from datetime import datetime, timezone
 from typing import Callable, TypeVar, Any
 from functools import wraps
@@ -79,19 +81,18 @@ def is_valid_interval(interval: str) -> bool:
     return interval in ("1h", "4h", "1d")
 
 
-# HTTP client with session for connection pooling
-_http_session: requests.Session | None = None
+# HTTP client with thread-local session for connection pooling
+_thread_local = threading.local()
 
 
 def get_http_session() -> requests.Session:
-    """Get or create shared HTTP session."""
-    global _http_session
-    if _http_session is None:
-        _http_session = requests.Session()
-        _http_session.headers.update(
+    """Get or create a thread-local HTTP session for thread safety."""
+    if not hasattr(_thread_local, "session") or _thread_local.session is None:
+        _thread_local.session = requests.Session()
+        _thread_local.session.headers.update(
             {"Content-Type": "application/json"}
         )
-    return _http_session
+    return _thread_local.session
 
 
 # Rate limit retry decorator

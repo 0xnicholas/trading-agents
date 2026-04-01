@@ -5,6 +5,7 @@ Data sources:
 - CoinCap: USDT/USDC supply
 - Note: Etherscan is blocked
 """
+__all__ = ['get_stablecoin_flow']
 import logging
 
 from tradingagents_crypto.dataflows.coincap import CoinCapClient

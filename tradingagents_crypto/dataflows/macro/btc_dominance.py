@@ -3,6 +3,7 @@ BTC Dominance data.
 
 Data source: CoinCap.io
 """
+__all__ = ['get_btc_dominance', 'get_btc_dominance_trend']
 import logging
 
 from tradingagents_crypto.dataflows.coincap import CoinCapClient

@@ -6,6 +6,7 @@ Free, no API key required.
 
 API: https://api.alternative.me/fng/
 """
+__all__ = ['FearGreedClient', 'get_current', 'get_label_from_value', 'interpret']
 import logging
 from datetime import datetime, timezone
 

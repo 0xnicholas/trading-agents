@@ -3,6 +3,7 @@ Solana price data.
 
 Data source: CoinCap.io (primary, since Jupiter is blocked)
 """
+__all__ = ['get_sol_price']
 import logging
 
 from tradingagents_crypto.dataflows.coincap import CoinCapClient

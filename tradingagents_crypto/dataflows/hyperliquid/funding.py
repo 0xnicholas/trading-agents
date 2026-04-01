@@ -3,6 +3,7 @@ Hyperliquid funding rate data.
 
 High-level functions for funding rate data.
 """
+__all__ = ['get_current_funding', 'get_funding_history']
 import logging
 from .api import HLClient
 from .cache import CacheManager

@@ -22,6 +22,10 @@ class TradeSignal:
     stop_loss_pct: float | None = None   # Stop loss % (e.g., 0.02 = 2%)
     take_profit_pct: float | None = None  # Take profit % (e.g., 0.05 = 5%)
 
+    def __post_init__(self):
+        if not 0.0 <= self.size_pct <= 1.0:
+            raise ValueError(f"size_pct must be between 0.0 and 1.0, got {self.size_pct}")
+
 
 @dataclass
 class Trade:
@@ -520,7 +524,14 @@ class BacktestEngine:
         # Sharpe ratio
         returns = equity.pct_change().dropna()
         if len(returns) > 0 and returns.std() > 0:
-            sharpe_ratio = (returns.mean() / returns.std()) * np.sqrt(365 * 24)
+            # Detect bar frequency from data
+            # Estimate bars per year from data spacing
+            if len(returns) > 1:
+                avg_bar_interval_hours = returns.index.to_series().diff().mean().total_seconds() / 3600
+                bars_per_year = (365 * 24) / max(avg_bar_interval_hours, 1)
+                sharpe_ratio = (returns.mean() / returns.std()) * np.sqrt(bars_per_year) if returns.std() > 0 else 0.0
+            else:
+                sharpe_ratio = 0.0
         else:
             sharpe_ratio = 0.0
 
