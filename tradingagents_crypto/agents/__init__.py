@@ -20,6 +20,8 @@ from tradingagents_crypto.agents.traders.crypto_trader import (
     create_trader_node,
     TRADER_PROMPT,
 )
+from tradingagents_crypto.agents.registry import AgentRegistry
+from tradingagents_crypto.agents.factory import AgentFactory
 
 __all__ = [
     # Base
@@ -36,4 +38,7 @@ __all__ = [
     "CryptoTrader",
     "create_trader_node",
     "TRADER_PROMPT",
+    # Factory
+    "AgentRegistry",
+    "AgentFactory",
 ]

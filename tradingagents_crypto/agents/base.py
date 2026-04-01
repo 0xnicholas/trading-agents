@@ -5,6 +5,7 @@ Provides common functionality for all agent types.
 """
 from __future__ import annotations
 import logging
+from abc import ABC, abstractmethod
 from typing import Any, Callable, TypeVar, Annotated
 from dataclasses import dataclass, field
 
@@ -16,8 +17,41 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
+# === Spec M4.7: BaseAgent for factory pattern ===
+
+
 @dataclass
 class AgentConfig:
+    """Agent configuration for factory-created agents."""
+    name: str = "agent"
+    model: str | None = None
+    temperature: float = 0.7
+    max_tokens: int = 2048
+
+
+class BaseAgent(ABC):
+    """Abstract base class for all agents (factory pattern)."""
+
+    def __init__(self, config: AgentConfig, llm: Any):
+        self.config = config
+        self.llm = llm
+
+    @abstractmethod
+    async def arun(self, input_data: dict) -> dict:
+        """Async execution."""
+        pass
+
+    def run(self, input_data: dict) -> dict:
+        """Sync execution (backwards compatibility)."""
+        import asyncio
+        return asyncio.run(self.arun(input_data))
+
+
+# === Legacy classes (kept for backwards compatibility) ===
+
+
+@dataclass
+class LegacyAgentConfig:
     """Configuration for a trading agent."""
     model_name: str = "gpt-4o"
     temperature: float = 0.7
@@ -41,7 +75,7 @@ class CryptoAgentBase:
         name: str,
         description: str,
         tools: list[Any],
-        config: AgentConfig | None = None,
+        config: LegacyAgentConfig | None = None,
     ):
         self.name = name
         self.description = description
