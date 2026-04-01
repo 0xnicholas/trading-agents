@@ -104,12 +104,34 @@ class AgentConfig:
 
 
 @dataclass
+class AlertConfig:
+    """Alert system configuration."""
+    # Notification channels
+    discord_webhook: str | None = None
+    slack_webhook: str | None = None
+    alert_level: str = "HIGH"  # LOW/MEDIUM/HIGH
+
+    # Alert thresholds (configurable)
+    consecutive_loss_threshold: int = 5
+    consecutive_loss_pct_threshold: float = 0.10  # 10%
+    api_error_rate_threshold: float = 0.10  # 10%
+    api_error_window_minutes: int = 5
+    agent_timeout_seconds: float = 30.0
+    cache_hit_ratio_threshold: float = 0.50  # 50%
+    disk_space_threshold_gb: float = 1.0
+
+    # Cooldown time
+    alert_cooldown_seconds: int = 60
+
+
+@dataclass
 class Config:
     """Root configuration container."""
     hyperliquid: HyperliquidConfig = field(default_factory=HyperliquidConfig)
     llm: LLMConfig = field(default_factory=LLMConfig)
     trading: TradingConfig = field(default_factory=TradingConfig)
     agent: AgentConfig = field(default_factory=AgentConfig)
+    alerts: AlertConfig = field(default_factory=AlertConfig)
 
     @classmethod
     def from_env(cls) -> "Config":
