@@ -12,7 +12,7 @@ from tradingagents_crypto.indicators.aggregator import compute_all_indicators, g
 logger = logging.getLogger(__name__)
 
 
-def get_hl_market_data(symbol: str, date: str = "") -> str:
+def get_hl_market_data(symbol: str, date: str = "", backtest_mode: bool = False) -> str:
     """
     Get comprehensive Hyperliquid market data for a symbol.
 
@@ -26,12 +26,13 @@ def get_hl_market_data(symbol: str, date: str = "") -> str:
     Args:
         symbol: Coin name (e.g., "BTC", "ETH")
         date: Date string "YYYY-MM-DD" for backtest mode (optional)
+        backtest_mode: If True, filter data by date
 
     Returns:
         Formatted markdown string with all market data
     """
     try:
-        data = get_hl_data(symbol, date or "2026-04-01")
+        data = get_hl_data(symbol, date or "2026-04-01", backtest_mode=backtest_mode)
 
         lines = [
             f"# {symbol} Market Data",

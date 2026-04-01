@@ -171,17 +171,18 @@ Based on the above analysis, make your trading decision.
         return "\n".join(lines) if lines else "No signals available."
 
 
-def create_trader_node(symbol: str):
+def create_trader_node(symbol: str, llm):
     """
     Create a LangGraph node for the trader.
 
     Args:
         symbol: Symbol to trade
+        llm: LangChain LLM instance (captured in closure)
 
     Returns:
         Node function for LangGraph
     """
-    def trader_node(state: dict, llm) -> dict:
+    def trader_node(state: dict) -> dict:
         """
         Trader node for LangGraph.
 
@@ -202,10 +203,7 @@ def create_trader_node(symbol: str):
                 ).to_dict()
             }
 
-        # Use default LLM if not in state
-        llm_to_use = state.get("llm", llm)
-
-        trader = CryptoTrader(llm_to_use, symbol)
+        trader = CryptoTrader(llm, symbol)
         decision = trader.decide(analyst_report)
 
         return {

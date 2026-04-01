@@ -232,7 +232,7 @@ Be precise with numbers. confidence should reflect conviction level.
     )
 
 
-def create_analyst_node(symbol: str):
+def create_analyst_node(symbol: str, llm):
     """
     Create a LangGraph node function for the analyst.
 
@@ -240,11 +240,12 @@ def create_analyst_node(symbol: str):
 
     Args:
         symbol: Symbol to analyze
+        llm: LangChain LLM instance (captured in closure)
 
     Returns:
         Node function that takes state and returns updated state
     """
-    def analyst_node(state: dict, llm) -> dict:
+    def analyst_node(state: dict) -> dict:
         """
         Analyst node for LangGraph.
 
@@ -259,7 +260,9 @@ def create_analyst_node(symbol: str):
         messages = state.get("messages", [])
 
         # Get market data
-        market_data = get_hl_market_data(symbol, current_date)
+        market_data = get_hl_market_data(
+            symbol, current_date, backtest_mode=bool(current_date)
+        )
         funding_details = get_funding_details(symbol)
         orderbook = get_orderbook_analysis(symbol, depth=20)
 

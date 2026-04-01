@@ -1,1 +1,1 @@
-# graph package
+"""Graph module for crypto trading workflow."""
