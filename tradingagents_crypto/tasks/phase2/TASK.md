@@ -36,18 +36,18 @@
 ### M2.0 数据源探测验证（Day 1-2）
 
 **预计工时**: 10h
-**前置**: 无
+**前置**: VM 网络限制，部分 API 不可访问
 
 | 任务 | 子任务 | 数据源 | 验证内容 | 状态 |
 |------|--------|--------|---------|------|
-| T2.0.1 | CoinGecko `/global` 端点验证 | CoinGecko API | BTC.Dominance 返回格式 | 🔵 |
-| T2.0.2 | Alternative.me Fear & Greed 验证 | Alternative.me API | 返回格式、值范围 0-100 | 🔵 |
-| T2.0.3 | Binance Futures fundingRate 验证 | Binance API | ETHUSDT fundingRate 格式 | 🔵 |
-| T2.0.4 | Jupiter API 价格验证 | Jupiter | SOL/USDT 价格格式 | 🔵 |
-| T2.0.5 | GeckoTerminal Solana Meme 验证 | GeckoTerminal | DEX 聚合数据格式 | 🔵 |
+| T2.0.1 | Alternative.me Fear & Greed 验证 | Alternative.me API (v1) | ✅ 已验证可用，v1 端点 | ✅ |
+| T2.0.2 | CoinCap.io API 验证 | CoinCap (CoinGecko 替代) | ETH/SOL 价格、BTC.Dominance | 🔵 |
+| T2.0.3 | Bybit funding rate 验证 | Bybit (Binance 替代) | ETH-PERP funding rate | 🔵 |
+| T2.0.4 | GeckoTerminal Solana Meme 验证 | GeckoTerminal | DEX 聚合数据格式 | 🔵 |
+| T2.0.5 | CoinCap Stablecoin 验证 | CoinCap | USDT/USDC 供给量 | 🔵 |
 | T2.0.6 | DeFiLlama TVL API 验证 | DeFiLlama | ETH/SOL TVL 格式 | 🔵 |
 | T2.0.7 | 输出数据源文档 | — | `docs/phase2_data_sources.md` | 🔵 |
-| T2.0.8 | CoinGecko 限流测试 | — | 验证 30 calls/min 内不触发 429 | 🔵 |
+| T2.0.8 | CoinCap 限流测试 | — | 验证 300 calls/min 限制 | 🔵 |
 
 **交付物**: `docs/phase2_data_sources.md`
 
@@ -350,10 +350,10 @@
 
 | API | 限制 | 处理策略 |
 |-----|------|---------|
-| CoinGecko | 10-30 calls/min | 共享缓存，TTL=60s |
-| Jupiter | 充足 | 并发请求 |
-| Binance | 1200/min | 共享 client |
-| Etherscan | 5/sec | 串行 + 缓存 |
+| CoinCap | 300 calls/min | 共享缓存，TTL=60s |
+| Bybit | 600 calls/min | 共享 client |
+| Alternative.me | 充足 | 直接调用 |
+| GeckoTerminal | 100 calls/min | 缓存 |
 | DeFiLlama | 充足 | 直接调用 |
 
 ---
@@ -388,35 +388,37 @@
 
 ---
 
-## 数据源汇总
+## 数据源汇总（VM 适配版）
+
+> ⚠️ VM 网络限制：CoinGecko、Binance、Jupiter 被阻断，改用替代方案
 
 ### Ethereum
 
 | 数据 | 来源 | 免费额度 | 用途 | 置信度 |
 |------|------|---------|------|--------|
-| ETH 现货价格 | CoinGecko | 限速 | 现货基准 | 0.75 |
-| ETH-PERP 资金费率 | Binance Futures API | 免费 | CEX 费率基准 | 0.9 |
-| Gas 价格 | Etherscan Gas API | 5/sec | 链上热度 | 0.8 |
-| 活跃地址（可选）| CoinGecko on-chain | 限速 | 链上活跃度 | 0.5 |
-| ETH Staking | CoinGecko | 免费 | 持有倾向 | 0.75 |
+| ETH 现货价格 | **CoinCap.io** | 300/min | 现货基准 | 0.75 |
+| ETH-PERP 资金费率 | **Bybit** | 600/min | CEX 费率基准 | 0.85 |
+| Gas 价格 | CoinCap | 300/min | 链上热度代理 | 0.6 |
+| 活跃地址（可选）| CoinCap on-chain | 300/min | 链上活跃度 | 0.5 |
+| ETH Staking | CoinCap | 300/min | 持有倾向 | 0.65 |
 | DeFi TVL | DeFiLlama API | 充足 | 生态健康度 | 0.8 |
 
 ### Solana
 
 | 数据 | 来源 | 免费额度 | 用途 | 置信度 |
 |------|------|---------|------|--------|
-| SOL 价格 | Jupiter Price API | 充足 | 现货基准 | 0.85 |
-| DEX 流动性 | Jupiter + Raydium | 充足 | Meme 币流动性 | 0.8 |
-| Meme 热度 | GeckoTerminal | 基本免费 | 投机热度 | 0.7 |
-| DEX 成交量 | Raydium Subgraph | 有限 | 市场活跃度 | 0.7 |
+| SOL 价格 | **CoinCap.io** | 300/min | 现货基准 | 0.8 |
+| DEX 流动性 | GeckoTerminal | 100/min | Meme 币流动性 | 0.7 |
+| Meme 热度 | GeckoTerminal | 100/min | 投机热度 | 0.7 |
+| DEX 成交量 | GeckoTerminal | 100/min | 市场活跃度 | 0.7 |
 
 ### 跨链宏观
 
 | 数据 | 来源 | 免费额度 | 置信度 |
 |------|------|---------|-------|
-| BTC.Dominance | CoinGecko `/global` | 限速 | 0.85 |
-| Fear & Greed | Alternative.me | 免费 | 0.5 |
-| Stablecoin Flow | Etherscan USDT 转账 | 5/sec | 0.5 |
+| BTC.Dominance | **CoinCap.io** `/v2/assets` | 300/min | 0.75 |
+| Fear & Greed | Alternative.me (v1) | 充足 | 0.5 |
+| Stablecoin Flow | **CoinCap** USDT/USDC 供给 | 300/min | 0.5 |
 | 相关性计算 | CoinGecko 收盘价 | 限速 | 0.8 |
 
 ---
@@ -456,6 +458,7 @@
 | 2026-04-01 | 12 | 缺少 check_price_deviation 函数 | T2.1.2 明确为独立函数 |
 | 2026-04-01 | 13 | Schema 字段不明确 | T2.3.7, T2.4.6 明确字段列表 |
 | 2026-04-01 | 14 | 缺少 __init__.py 任务 | T2.1.0, T2.2.0, T2.5.0 |
+| 2026-04-01 | 15 | VM 网络限制 | 改用 CoinCap/Bybit 替代 CoinGecko/Binance/Jupiter |
 
 ---
 
