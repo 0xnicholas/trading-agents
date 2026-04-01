@@ -21,13 +21,13 @@
 | 里程碑 | 名称 | 周期 | 状态 |
 |--------|------|------|------|
 | M2.0 | 数据源探测验证 | Day 1-2 | 🔵 待启动 |
-| M2.1 | 数据层扩展 — Ethereum | Day 3-7 | ⏸️ 等待中 |
-| M2.2 | 数据层扩展 — Solana | Day 8-14 | ⏸️ 等待中 |
-| M2.3 | ETH OnChain Analyst | Day 10-12 | ⏸️ 等待中 |
-| M2.4 | Solana DEX / Meme Analyst | Day 13-16 | ⏸️ 等待中 |
-| M2.5 | 跨链 Macro Analyst | Day 13-16 | ⏸️ 等待中 |
-| M2.6 | Graph 升级 — 多链路由 | Day 17-19 | ⏸️ 等待中 |
-| M2.7 | 集成测试 | Day 20-21 | ⏸️ 等待中 |
+| M2.1 | 数据层扩展 — Ethereum | Day 3-6 | ⏸️ 等待中 |
+| M2.2 | 数据层扩展 — Solana | Day 4-10 | ⏸️ 等待中 |
+| M2.3 | ETH OnChain Analyst | Day 3-6 | ⏸️ 等待中 |
+| M2.4 | Solana DEX / Meme Analyst | Day 7-10 | ⏸️ 等待中 |
+| M2.5 | 跨链 Macro Analyst | Day 11-14 | ⏸️ 等待中 |
+| M2.6 | Graph 升级 — 多链路由 | Day 15-18 | ⏸️ 等待中 |
+| M2.7 | 集成测试 | Day 19-21 | ⏸️ 等待中 |
 
 ---
 
@@ -36,50 +36,51 @@
 ### M2.0 数据源探测验证（Day 1-2）
 
 **预计工时**: 8h
-**并行**: 可与 Phase 1 收尾并行
+**前置**: 无
 
 | 任务 | 子任务 | 数据源 | 验证内容 | 状态 |
 |------|--------|--------|---------|------|
-| T2.0.1 | CoinGecko `/global` 端点验证 | CoinGecko API | BTC.Dominance 返回格式 | 🔵 |
-| T2.0.2 | Alternative.me Fear & Greed 验证 | Alternative.me API | 返回格式、值范围 | 🔵 |
-| T2.0.3 | Dune Analytics 公共查询验证 | Dune | Stablecoin Flow 查询可行性 | 🔵 |
-| T2.0.4 | Binance Futures fundingRate 验证 | Binance API | ETHUSDT fundingRate 格式 | 🔵 |
-| T2.0.5 | Jupiter API 价格验证 | Jupiter | SOL/USDT 价格格式 | 🔵 |
-| T2.0.6 | GeckoTerminal Solana Meme 验证 | GeckoTerminal | DEX 聚合数据格式 | 🔵 |
+| T2.0.1 | CoinGecko `/global` 端点验证 | CoinGecko API | BTC.Dominance 返回格式 + 限流测试 | 🔵 |
+| T2.0.2 | Alternative.me Fear & Greed 验证 | Alternative.me API | 返回格式、值范围 0-100 | 🔵 |
+| T2.0.3 | Binance Futures fundingRate 验证 | Binance API | ETHUSDT fundingRate 格式 | 🔵 |
+| T2.0.4 | Jupiter API 价格验证 | Jupiter | SOL/USDT 价格格式 | 🔵 |
+| T2.0.5 | GeckoTerminal Solana Meme 验证 | GeckoTerminal | DEX 聚合数据格式 | 🔵 |
+| T2.0.6 | DeFiLlama TVL API 验证 | DeFiLlama | ETH/SOL TVL 格式 | 🔵 |
 | T2.0.7 | 输出数据源文档 | — | `docs/phase2_data_sources.md` | 🔵 |
 
 **交付物**: `docs/phase2_data_sources.md`
 
 ---
 
-### M2.1 数据层扩展 — Ethereum（Day 3-7）
+### M2.1 数据层扩展 — Ethereum（Day 3-6）
 
-**预计工时**: 16h
+**预计工时**: 12h
+**并行**: 与 M2.3 ETH Analyst 并行开发
 
 #### M2.1.1 价格数据
 
-| 任务 | 子任务 | 状态 |
-|------|--------|------|
-| T2.1.1 | `dataflows/ethereum/price.py` — CoinGecko ETH 现货 OHLCV | 🔵 |
-| T2.1.2 | 标记价格偏差检测 (>1% 警告) | ⏸️ |
-| T2.1.3 | `dataflows/ethereum/__init__.py` | ⏸️ |
+| 任务 | 子任务 | 数据源 | 状态 |
+|------|--------|--------|------|
+| T2.1.1 | `dataflows/ethereum/price.py` — CoinGecko ETH 现货 OHLCV | CoinGecko | 🔵 |
+| T2.1.2 | 标记价格偏差检测 (>1% 警告) | — | 🔵 |
+| T2.1.3 | `dataflows/ethereum/__init__.py` | — | 🔵 |
 
 #### M2.1.2 永续合约资金费率
 
-| 任务 | 子任务 | 状态 |
-|------|--------|------|
-| T2.1.4 | `dataflows/ethereum/funding.py` — Binance Futures API | 🔵 |
-| T2.1.5 | 年化计算 (`rate × 3 × 365`) | ⏸️ |
-| T2.1.6 | 与 Hyperliquid 资金费率分开展示 | ⏸️ |
+| 任务 | 子任务 | 数据源 | 状态 |
+|------|--------|--------|------|
+| T2.1.4 | `dataflows/ethereum/funding.py` — Binance Futures API | Binance | 🔵 |
+| T2.1.5 | 年化计算 (`rate × 3 × 365`) | — | 🔵 |
+| T2.1.6 | 与 Hyperliquid 资金费率分开展示 | — | 🔵 |
 
 #### M2.1.3 链上数据
 
-| 任务 | 子任务 | 数据源 | 状态 |
-|------|--------|--------|------|
-| T2.1.7 | 活跃地址数 | Dune 公共查询 | 🔵 |
-| T2.1.8 | Gas 价格 | Etherscan Gas API | 🔵 |
-| T2.1.9 | ETH 质押量 | CoinGecko | 🔵 |
-| T2.1.10 | DeFi TVL | DeFiLlama API | 🔵 |
+| 任务 | 子任务 | 数据源 | 优先级 | 状态 |
+|------|--------|--------|--------|------|
+| T2.1.7 | Gas 价格 | Etherscan Gas API | 高 | 🔵 |
+| T2.1.8 | ETH 质押量 | CoinGecko | 高 | 🔵 |
+| T2.1.9 | DeFi TVL | DeFiLlama API | 高 | 🔵 |
+| T2.1.10 | 活跃地址数（可选） | CoinGecko on-chain data | 低 | 🔵 |
 
 #### M2.1.4 ETH 数据汇总
 
@@ -90,22 +91,23 @@
 
 ---
 
-### M2.2 数据层扩展 — Solana（Day 8-14）
+### M2.2 数据层扩展 — Solana（Day 4-10）
 
-**预计工时**: 20h
+**预计工时**: 16h
+**并行**: 与 M2.4 Solana Analyst 并行开发
 
 #### M2.2.1 现货价格
 
-| 任务 | 子任务 | 状态 |
-|------|--------|------|
-| T2.2.1 | `dataflows/solana/price.py` — Jupiter Price API | 🔵 |
+| 任务 | 子任务 | 数据源 | 状态 |
+|------|--------|--------|------|
+| T2.2.1 | `dataflows/solana/price.py` — Jupiter Price API | Jupiter | 🔵 |
 
 #### M2.2.2 DEX 流动性
 
 | 任务 | 子任务 | 数据源 | 状态 |
 |------|--------|--------|------|
 | T2.2.2 | `dataflows/solana/dex.py` — Jupiter DEX 聚合 | Jupiter API | 🔵 |
-| T2.2.3 | Raydium Subgraph — 流动性池状态 | The Graph | 🔵 |
+| T2.2.3 | Raydium Subgraph — 流动性池状态（备选） | The Graph | 🔵 |
 
 #### M2.2.3 Meme 币热度
 
@@ -123,18 +125,19 @@
 
 ---
 
-### M2.3 ETH OnChain Analyst（Day 10-12）
+### M2.3 ETH OnChain Analyst（Day 3-6）
 
 **预计工时**: 12h
+**并行**: 与 M2.1 ETH 数据层并行
 
 | 任务 | 子任务 | 状态 |
 |------|--------|------|
 | T2.3.1 | `agents/analysts/ethereum_onchain_analyst.py` — 主体 | 🔵 |
-| T2.3.2 | Gas 情绪分析 (vs 7d 均值) | ⏸️ |
-| T2.3.3 | 活跃地址趋势 (30d 变化率) | ⏸️ |
-| T2.3.4 | ETH 质押率分析 | ⏸️ |
-| T2.3.5 | DeFi TVL 分析 | ⏸️ |
-| T2.3.6 | 资金费率对比 (Binance vs Hyperliquid) | ⏸️ |
+| T2.3.2 | Gas 情绪分析 (vs 7d 均值) | 🔵 |
+| T2.3.3 | 活跃地址趋势（可选） | 🔵 |
+| T2.3.4 | ETH 质押率分析 | 🔵 |
+| T2.3.5 | DeFi TVL 分析 | 🔵 |
+| T2.3.6 | 资金费率对比 (Binance vs Hyperliquid) | 🔵 |
 | T2.3.7 | Pydantic Schema (`EthereumOnChainReport`) | 🔵 |
 | T2.3.8 | ETH Analyst 测试 | 🔵 |
 
@@ -156,17 +159,17 @@
 
 ---
 
-### M2.4 Solana DEX / Meme Analyst（Day 13-16）
+### M2.4 Solana DEX / Meme Analyst（Day 7-10）
 
 **预计工时**: 12h
 
 | 任务 | 子任务 | 状态 |
 |------|--------|------|
 | T2.4.1 | `agents/analysts/solana_dex_analyst.py` — 主体 | 🔵 |
-| T2.4.2 | Meme 币流动性分析 | ⏸️ |
-| T2.4.3 | Meme 币资金流向 (24h周转率) | ⏸️ |
-| T2.4.4 | SOL 价格动能 | ⏸️ |
-| T2.4.5 | DEX 活动度 (Raydium/Jupiter) | ⏸️ |
+| T2.4.2 | Meme 币流动性分析 | 🔵 |
+| T2.4.3 | Meme 币资金流向 (24h周转率) | 🔵 |
+| T2.4.4 | SOL 价格动能 | 🔵 |
+| T2.4.5 | DEX 活动度 (Raydium/Jupiter) | 🔵 |
 | T2.4.6 | Pydantic Schema (`SolanaDexReport`) | 🔵 |
 | T2.4.7 | Solana Analyst 测试 | 🔵 |
 
@@ -187,7 +190,7 @@
 
 ---
 
-### M2.5 跨链 Macro Analyst（Day 13-16）
+### M2.5 跨链 Macro Analyst（Day 11-14）
 
 **预计工时**: 16h
 
@@ -215,16 +218,19 @@
 
 | 任务 | 子任务 | 数据源 | 状态 |
 |------|--------|--------|------|
-| T2.5.6 | 7d Pearson 相关系数计算 | CoinGecko | 🔵 |
-| T2.5.7 | BTC vs ETH, BTC vs SOL 相关性 | — | 🔵 |
+| T2.5.6 | 获取 BTC 7d 每日收盘价 | CoinGecko | 🔵 |
+| T2.5.7 | 获取 ETH 7d 每日收盘价 | CoinGecko | 🔵 |
+| T2.5.8 | 获取 SOL 7d 每日收盘价 | CoinGecko | 🔵 |
+| T2.5.9 | 7d Pearson 相关系数计算 | — | 🔵 |
+| T2.5.10 | BTC vs ETH, BTC vs SOL 相关性分析 | — | 🔵 |
 
 #### M2.5.5 Macro Analyst 主体
 
 | 任务 | 子任务 | 状态 |
 |------|--------|------|
-| T2.5.8 | `agents/analysts/cross_chain_macro_analyst.py` | 🔵 |
-| T2.5.9 | Pydantic Schema (`CrossChainMacroReport`) | 🔵 |
-| T2.5.10 | Macro Analyst 测试 | 🔵 |
+| T2.5.11 | `agents/analysts/cross_chain_macro_analyst.py` | 🔵 |
+| T2.5.12 | Pydantic Schema (`CrossChainMacroReport`) | 🔵 |
+| T2.5.13 | Macro Analyst 测试 | 🔵 |
 
 **输出 Schema**:
 ```json
@@ -242,7 +248,7 @@
 
 ---
 
-### M2.6 Graph 升级 — 多链路由（Day 17-19）
+### M2.6 Graph 升级 — 多链路由（Day 15-18）
 
 **预计工时**: 12h
 
@@ -250,14 +256,14 @@
 |------|--------|------|
 | T2.6.1 | `graph/crypto_trading_graph.py` 改造 — 并行多链 | 🔵 |
 | T2.6.2 | Chain-Specific Analyst 并行执行 (async) | 🔵 |
-| T2.6.3 | Cross-Chain Macro Analyst 顺序执行 | ⏸️ |
+| T2.6.3 | Cross-Chain Macro Analyst 顺序执行 | 🔵 |
 | T2.6.4 | `agents/trader/crypto_trader.py` 改造 — 汇总三链 | 🔵 |
 | T2.6.5 | 多链配置升级 (`chains.enabled` ) | 🔵 |
 | T2.6.6 | Graph 升级测试 | 🔵 |
 
 ---
 
-### M2.7 集成测试（Day 20-21）
+### M2.7 集成测试（Day 19-21）
 
 **预计工时**: 8h
 
@@ -277,10 +283,21 @@
 | 数据质量 | confidence | 来源 |
 |---------|-----------|------|
 | 官方 API / SDK | 0.9-1.0 | Hyperliquid SDK, Binance API |
-| 付费 API（稳定） | 0.8-0.9 | Dune 有 Key, Alchemy |
-| 免费 API（限速） | 0.7-0.8 | CoinGecko, Jupiter |
-| 近似/代理指标 | 0.4-0.6 | USDT Etherscan 转账代理 |
+| 免费 API（限速但稳定） | 0.7-0.8 | CoinGecko, Jupiter, DeFiLlama |
+| 近似/代理指标 | 0.4-0.6 | Etherscan USDT 转账代理 |
 | 低质量/估算 | 0.3-0.5 | Fear & Greed 免费版 |
+
+---
+
+## API 限流处理
+
+| API | 限制 | 处理策略 |
+|-----|------|---------|
+| CoinGecko | 10-30 calls/min | 共享缓存，TTL=60s |
+| Jupiter | 充足 | 并发请求 |
+| Binance | 1200/min | 共享 client |
+| Etherscan | 5/sec | 串行 + 缓存 |
+| DeFiLlama | 充足 | 直接调用 |
 
 ---
 
@@ -295,8 +312,9 @@
 | Solana SOL 价格 | Jupiter 返回正确价格 |
 | Solana DEX Meme 流动性 | Top 5 Meme 币流动性数据获取 |
 | BTC.Dominance | 7d 趋势计算正确 |
-| Fear & Greed | 每日值获取 + 标注置信度 |
+| Fear & Greed | 每日值获取 + 标注置信度 0.5 |
 | Stablecoin Flow 近似 | Etherscan USDT 转账代理计算 |
+| 相关性计算 | BTC/ETH/SOL 7d Pearson 相关系数 |
 | ETH OnChain Analyst | 输出含置信度的 JSON |
 | SOL DEX Analyst | 输出含置信度的 JSON |
 | Cross-Chain Analyst | 输出宏观 regime 判断 |
@@ -317,23 +335,23 @@
 
 ### Ethereum
 
-| 数据 | 来源 | 免费额度 | 用途 |
-|------|------|---------|------|
-| ETH 现货价格 | CoinGecko | 限速 | 现货基准 |
-| ETH-PERP 资金费率 | Binance Futures API | 免费 | CEX 费率基准 |
-| Gas 价格 | Etherscan Gas API | 免费 | 链上热度 |
-| 活跃地址 | Dune 公共查询 | 有限额 | 链上活跃度 |
-| ETH Staking | CoinGecko | 免费 | 持有倾向 |
-| DeFi TVL | DeFiLlama API | 免费 | 生态健康度 |
+| 数据 | 来源 | 免费额度 | 用途 | 置信度 |
+|------|------|---------|------|--------|
+| ETH 现货价格 | CoinGecko | 限速 | 现货基准 | 0.75 |
+| ETH-PERP 资金费率 | Binance Futures API | 免费 | CEX 费率基准 | 0.9 |
+| Gas 价格 | Etherscan Gas API | 5/sec | 链上热度 | 0.8 |
+| 活跃地址（可选） | CoinGecko on-chain | 限速 | 链上活跃度 | 0.5 |
+| ETH Staking | CoinGecko | 免费 | 持有倾向 | 0.75 |
+| DeFi TVL | DeFiLlama API | 充足 | 生态健康度 | 0.8 |
 
 ### Solana
 
-| 数据 | 来源 | 免费额度 | 用途 |
-|------|------|---------|------|
-| SOL 价格 | Jupiter Price API | 充足 | 现货基准 |
-| DEX 流动性 | Jupiter + Raydium Subgraph | 充足 | Meme 币流动性 |
-| Meme 热度 | GeckoTerminal | 基本免费 | 投机热度 |
-| DEX 成交量 | Raydium Subgraph | 充足 | 市场活跃度 |
+| 数据 | 来源 | 免费额度 | 用途 | 置信度 |
+|------|------|---------|------|--------|
+| SOL 价格 | Jupiter Price API | 充足 | 现货基准 | 0.85 |
+| DEX 流动性 | Jupiter + Raydium | 充足 | Meme 币流动性 | 0.8 |
+| Meme 热度 | GeckoTerminal | 基本免费 | 投机热度 | 0.7 |
+| DEX 成交量 | Raydium Subgraph | 有限 | 市场活跃度 | 0.7 |
 
 ### 跨链宏观
 
@@ -341,8 +359,8 @@
 |------|------|---------|-------|
 | BTC.Dominance | CoinGecko `/global` | 限速 | 0.85 |
 | Fear & Greed | Alternative.me | 免费 | 0.5 |
-| Stablecoin Flow | Etherscan USDT 转账代理 | 免费 | 0.5 |
-| 相关性 | CoinGecko 收盘价计算 | 限速 | 0.8 |
+| Stablecoin Flow | Etherscan USDT 转账 | 5/sec | 0.5 |
+| 相关性计算 | CoinGecko 收盘价 | 限速 | 0.8 |
 
 ---
 
@@ -351,34 +369,29 @@
 | 里程碑 | 工时 | 累计 |
 |--------|------|------|
 | M2.0 | 8h | 8h |
-| M2.1 | 16h | 24h |
-| M2.2 | 20h | 44h |
-| M2.3 | 12h | 56h |
-| M2.4 | 12h | 68h |
-| M2.5 | 16h | 84h |
-| M2.6 | 12h | 96h |
-| M2.7 | 8h | 104h |
+| M2.1 | 12h | 20h |
+| M2.2 | 16h | 36h |
+| M2.3 | 12h | 48h |
+| M2.4 | 12h | 60h |
+| M2.5 | 16h | 76h |
+| M2.6 | 12h | 88h |
+| M2.7 | 8h | 96h |
 
-**Phase 2 总工时**: ~104 小时（约 15 个工作日，符合 2-3 周计划）
+**Phase 2 总工时**: ~96 小时（约 14 个工作日，符合 2-3 周计划）
 
 ---
 
 ## 修订记录
 
-| # | 问题 | 修订 |
-|---|------|------|
-| 1 | BTC.D 无数据源 | ✅ CoinGecko `/global` |
-| 2 | Fear & Greed 无源 | ✅ Alternative.me，置信度 0.5 |
-| 3 | Stablecoin Flow 未定义 | ✅ USDT Etherscan 转账代理，置信度 0.5 |
-| 4 | ETH 费率来源冲突 | ✅ 统一 Binance Futures，Hyperliquid 分开展示 |
-| 5 | Solana 永续不需要 | ✅ 明确为现货 DEX 分析 |
-| 6 | DEX API 可靠性 | ✅ Jupiter 为主，Raydium Subgraph 补充 |
-| 7 | Dune 免费层不足 | ✅ 改用 DeFiLlama + Etherscan |
-| 8 | M2.3/M2.4 时间重叠 | ✅ 改为串行（先 ETH 再 SOL） |
-| 9 | 相关性计算未定义 | ✅ 7d Pearson，CoinGecko |
-| 10 | ETH 数据混淆 | ✅ 区分：现货参考 + PERP 费率 |
-| 11 | 配置层太简单 | ✅ 嵌套 chains 配置 |
-| 12 | 数据降级策略模糊 | ✅ 分 core/optional + 置信度标注 |
+| 日期 | # | 问题 | 修订 |
+|------|---|------|------|
+| 2026-04-01 | 1 | Dune Analytics 自相矛盾 | 删除 T2.0.3，移除 Dune |
+| 2026-04-01 | 2 | M2.1.7 活跃地址数据源不明 | 改用 CoinGecko，标为可选 |
+| 2026-04-01 | 3 | 相关性计算缺数据获取 | 拆分为 T2.5.6-2.5.10 |
+| 2026-04-01 | 4 | M2.3/M2.4/M2.5 时间重叠 | 改为并行：M2.1+M2.3, M2.2+M2.4, M2.5 |
+| 2026-04-01 | 5 | API 限流未考虑 | 添加 API 限流处理表 |
+| 2026-04-01 | 6 | Raydium Subgraph 不稳定 | 标注为备选，Jupiter 为主 |
+| 2026-04-01 | 7 | 总工时估算偏多 | 从 104h 调整为 96h |
 
 ---
 
