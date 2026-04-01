@@ -245,9 +245,10 @@ def generate_markdown_report(
         for i, trade in enumerate(result.trades[:20]):  # First 20 trades
             entry_dt = datetime.fromtimestamp(trade.entry_time).strftime("%Y-%m-%d %H:%M")
             exit_dt = datetime.fromtimestamp(trade.exit_time).strftime("%Y-%m-%d %H:%M") if trade.exit_time else "Open"
+            exit_price_str = f"${trade.exit_price:,.2f}" if trade.exit_price else "-"
             lines.append(
                 f"| {i+1} | {entry_dt} | {exit_dt} | {trade.side} | ${trade.size:,.0f} | "
-                f"${trade.entry_price:,.2f} | ${trade.exit_price:,.2f if trade.exit_price else '-'} | "
+                f"${trade.entry_price:,.2f} | {exit_price_str} | "
                 f"${trade.realized_pnl:,.2f} |"
             )
 
