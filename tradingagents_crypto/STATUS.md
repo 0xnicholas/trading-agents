@@ -10,7 +10,7 @@
 | 阶段 | 状态 | 进度 |
 |------|------|------|
 | **Phase 1** | ✅ 完成 | 100% |
-| Phase 2 | ⏸️ 等待中 | 0% |
+| Phase 2 | 🔵 待启动 | 0% |
 | Phase 3 | ⏸️ 等待中 | 0% |
 
 ---
@@ -67,7 +67,7 @@
 
 | 阻塞项 | 依赖方 | 状态 |
 |--------|--------|------|
-| 无 | — | Phase 1 已完成 |
+| 无 | — | Phase 1 已完成，准备启动 M2.0 |
 
 ---
 
@@ -157,9 +157,15 @@
 
 ## 下一步行动
 
-**Phase 1 ✅ 完成**
+**Phase 2 🔵 待启动 — M2.0 数据源探测验证**
 
-下一步：启动 Phase 2 或继续开发新功能
+1. M2.0.1 验证 CoinGecko `/global` 端点 → BTC.Dominance
+2. M2.0.2 验证 Alternative.me Fear & Greed API
+3. M2.0.3 验证 Dune Analytics 公共查询
+4. M2.0.4 验证 Binance Futures fundingRate API
+5. M2.0.5 验证 Jupiter API (Solana 价格)
+6. M2.0.6 验证 GeckoTerminal Solana Meme 数据
+7. M2.0.7 输出 `docs/phase2_data_sources.md`
 
 1. **Phase 2** (M2.0 数据源验证)
 2. **新增功能** (风险管理系统、实时监控等)
