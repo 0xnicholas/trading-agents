@@ -128,7 +128,20 @@ def filter_by_date(df: pd.DataFrame, date: str) -> pd.DataFrame:
     try:
         cutoff = datetime.datetime.strptime(date, "%Y-%m-%d")
         cutoff_ts = int(cutoff.timestamp())
-        return df[df["timestamp"] <= cutoff_ts]
-    except Exception:
-        logger.warning(f"Failed to parse date: {date}")
+        original_len = len(df)
+        filtered = df[df["timestamp"] <= cutoff_ts]
+        if len(filtered) < original_len:
+            logger.info(
+                f"Backtest filter: {date} -> kept {len(filtered)}/{original_len} candles"
+            )
+        if len(filtered) == 0:
+            logger.warning(
+                f"Backtest filter: date {date} is after all data, returning empty DataFrame"
+            )
+        return filtered
+    except ValueError as e:
+        logger.error(f"Invalid date format '{date}': {e}. Expected YYYY-MM-DD. Returning unfiltered data.")
+        return df
+    except Exception as e:
+        logger.error(f"Unexpected error filtering by date '{date}': {e}. Returning unfiltered data.")
         return df

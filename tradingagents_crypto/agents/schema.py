@@ -104,8 +104,11 @@ class TradeSignal(BaseModel):
     action: Literal["long", "short", "close", "hold"]
     size_pct: float = Field(ge=0.0, le=1.0)
     leverage: int = Field(ge=1, le=20)
-    entry_reason: str
-    risk_adjusted: bool
+    entry_reason: str = Field(validation_alias="reason")  # Accept 'reason' from LLM
+    risk_adjusted: bool = Field(default=False)
+    risk_warnings: list[str] = Field(default_factory=list)
+
+    model_config = {"populate_by_name": True}
 
 
 class RiskReport(BaseModel):

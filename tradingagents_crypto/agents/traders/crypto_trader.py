@@ -8,6 +8,7 @@ from typing import Any
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from pydantic import ValidationError
 
 from tradingagents_crypto.agents.base import (
     CryptoAgentBase,
@@ -15,6 +16,7 @@ from tradingagents_crypto.agents.base import (
     TradingDecision,
     AnalystReport,
 )
+from tradingagents_crypto.agents.schema import TradeSignal
 
 logger = logging.getLogger(__name__)
 
@@ -126,38 +128,41 @@ Based on the above analysis, make your trading decision.
         response = self.llm.invoke(messages)
         content = response.content if hasattr(response, "content") else str(response)
 
-        # Parse JSON response
+        # Parse JSON response with Pydantic validation
         import json
         import re
 
         json_match = re.search(r"\{[\s\S]*\}", content)
+        validated_signal: TradeSignal | None = None
+
         if json_match:
             try:
-                parsed = json.loads(json_match.group())
-            except json.JSONDecodeError:
-                logger.warning("Failed to parse trader decision JSON")
-                parsed = {
-                    "action": "hold",
-                    "size_pct": 0.0,
-                    "leverage": 1,
-                    "reason": "Failed to parse LLM response",
-                    "risk_warnings": [],
-                }
-        else:
-            parsed = {
-                "action": "hold",
-                "size_pct": 0.0,
-                "leverage": 1,
-                "reason": content[:200],
-                "risk_warnings": [],
-            }
+                raw = json.loads(json_match.group())
+                validated_signal = TradeSignal.model_validate(raw)
+                logger.debug(f"Validated trade signal: {validated_signal.action}")
+            except (json.JSONDecodeError, ValidationError) as e:
+                logger.warning(f"Trade signal JSON parse/validation failed: {e}")
 
+        if validated_signal is not None:
+            warnings = list(validated_signal.risk_warnings) if validated_signal.risk_warnings else []
+            if validated_signal.risk_adjusted:
+                warnings.append("risk_adjusted")
+            return TradingDecision(
+                action=validated_signal.action,
+                size_pct=validated_signal.size_pct,
+                leverage=validated_signal.leverage,
+                reason=validated_signal.entry_reason,
+                risk_warnings=warnings,
+            )
+
+        # Fallback when JSON parsing failed
+        logger.warning("LLM did not return valid trade signal JSON, defaulting to hold")
         return TradingDecision(
-            action=parsed.get("action", "hold"),
-            size_pct=parsed.get("size_pct", 0.0),
-            leverage=parsed.get("leverage", 1),
-            reason=parsed.get("reason", ""),
-            risk_warnings=parsed.get("risk_warnings", []),
+            action="hold",
+            size_pct=0.0,
+            leverage=1,
+            reason=f"JSON parse failed. Raw response: {content[:200]}",
+            risk_warnings=["parse_error"],
         )
 
     def _format_signals(self, signals: dict[str, Any]) -> str:

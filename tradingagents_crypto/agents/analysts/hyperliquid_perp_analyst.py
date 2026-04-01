@@ -9,6 +9,7 @@ from typing import Annotated
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnableConfig
+from pydantic import ValidationError
 
 from tradingagents_crypto.agents.base import (
     CryptoAgentBase,
@@ -199,24 +200,32 @@ Be precise with numbers. confidence should reflect conviction level.
 
     # Look for JSON block
     json_match = re.search(r"\{[\s\S]*\}", content)
+    parsed = None
+
     if json_match:
         try:
-            parsed = json.loads(json_match.group())
-        except json.JSONDecodeError:
-            logger.warning("Failed to parse JSON from LLM response")
+            raw_json = json.loads(json_match.group())
+            # Validate with Pydantic model
+            validated = HyperliquidPerpReport.model_validate(raw_json)
             parsed = {
-                "summary": content[:200],
-                "direction": "neutral",
-                "confidence": 0.5,
-                "signals": {},
-                "metrics": {},
-                "narrative": content,
+                "summary": validated.summary,
+                "direction": validated.direction,
+                "confidence": validated.confidence,
+                "signals": validated.signals.model_dump(),
+                "metrics": validated.metrics.model_dump(),
+                "narrative": validated.narrative,
             }
-    else:
+        except (json.JSONDecodeError, ValidationError) as e:
+            logger.warning(f"JSON parse/validation failed: {e}, using raw content fallback")
+            parsed = None
+
+    # Fallback: use raw content if JSON parsing failed
+    if parsed is None:
+        logger.warning("LLM did not return valid JSON, using fallback response")
         parsed = {
-            "summary": content[:200],
+            "summary": content[:200] if len(content) <= 200 else content[:200] + "...",
             "direction": "neutral",
-            "confidence": 0.5,
+            "confidence": 0.3,  # Low confidence when we can't parse JSON
             "signals": {},
             "metrics": {},
             "narrative": content,
