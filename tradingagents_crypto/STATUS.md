@@ -31,7 +31,7 @@
 | M1.6 | 端到端测试 | ✅ 完成 | 100% |
 
 **完成任务**: 6 / 7 里程碑
-**测试**: 111 passed, 2 skipped, 0 failed
+**测试**: 416 passed, 3 skipped, 0 failed (2026-04-02 更新)
 **代码审查**: ✅ 已完成并修复所有 P0/P1/P2 问题
 
 ### 代码质量
@@ -39,8 +39,8 @@
 | 指标 | 状态 |
 |------|------|
 | 编译通过 | ✅ |
-| 单元测试 | ✅ 111 passed |
-| 集成测试 | ✅ 2 skipped (需真实 API) |
+| 单元测试 | ✅ 416 passed |
+| 集成测试 | ✅ 3 skipped (需真实 API/网络) |
 | Pydantic schema 验证 | ✅ |
 | 错误处理 | ✅ |
 | 类型提示 | ✅ 完整 |
@@ -158,20 +158,19 @@
 | AnalystCoordinator | `graph/nodes/analyst_coordinator.py` | 分析师协调 |
 
 ### 测试
-| 交付物 | 测试数 | 状态 |
-|--------|--------|------|
-| test_utils.py | 14 | ✅ |
-| test_cache.py | 9 | ✅ |
-| test_hl_client.py | 8 | ✅ |
-| test_indicators.py | 20 | ✅ |
-| test_schema.py | 9 | ✅ |
-| test_agents.py | 11 | ✅ |
-| test_config.py | 14 | ✅ |
-| test_graph.py | 4 | ✅ |
-| test_btc_e2e.py (integration) | 22 | ✅ |
-| test_case1_ma_strategy.py | — | ✅ |
-| test_case2_funding_strategy.py | — | ✅ |
-| test_case3_cross_chain.py | — | ✅ |
+
+| 类别 | 测试文件 | 状态 |
+|------|---------|------|
+| 单元测试 | test_agents.py, test_config.py, test_graph.py | ✅ |
+| 数据测试 | test_utils.py, test_cache.py, test_hl_client.py, test_indicators.py | ✅ |
+| Schema测试 | test_schema.py | ✅ |
+| 集成测试 | test_btc_e2e.py, test_case1/2/3 | ✅ |
+| 健康检查 | test_health.py | ✅ |
+| 并行执行 | test_parallel_analysts.py | ✅ |
+| 回测 | test_slippage_estimator.py | ✅ |
+| Meta Agent | test_meta_agent.py | ✅ |
+
+**总计**: 416 passed, 3 skipped, 0 failed
 
 ### Git Commits
 
@@ -196,6 +195,7 @@
 | `7a44c65` | 2026-04-02 | M4.11 PaperTrading |
 | `f749b46` | 2026-04-02 | M4.12 HyperliquidConnector |
 | `b598cb4` | 2026-04-02 | M4.13 Approval Workflow |
+| `1312127` | 2026-04-02 | Test fixes (7 failures resolved) |
 
 ---
 
@@ -203,9 +203,8 @@
 
 | 风险 | 影响 | 概率 | 状态 | 缓解措施 |
 |------|------|------|------|---------|
-| Hyperliquid SDK Python 3.10 冲突 | 高 | 中 | ✅ 已缓解 | 切换到 Python 3.11 |
 | LLM API 成本超预期 | 中 | 低 | 监控中 | 设置 API 调用上限 |
-| Phase 2 数据源不可用 | 高 | 低 | ⏭️ 已跳过 | Phase 2 已跳过 |
+| 网络连接问题 | 中 | 中 | ⚠️ 已跳过 | 部分测试需网络，已 skip |
 | OpenClaw exec 审批限制 | 低 | 高 | ⚠️ 已知 | 每次命令需审批 |
 
 ---
@@ -214,6 +213,7 @@
 
 | 日期 | 决策 | 影响 |
 |------|------|------|
+| 2026-04-02 | 测试修复完成 | 416 passed, 3 skipped, 0 failed |
 | 2026-04-02 | Phase 4 完成 | 生产基础设施就绪 |
 | 2026-04-02 | Phase 3 完成 | 风险管理与回测系统上线 |
 | 2026-04-02 | M2.0 数据源验证跳过 | 优先聚焦核心功能开发 |
@@ -228,10 +228,16 @@
 
 **Phase 1-4 全部完成 — 项目核心功能已就绪**
 
-1. **测试覆盖** — 修复 7 个失败的测试
+1. **ETH/SOL Analyst** — 实现多链分析师
 2. **性能优化** — 缓存策略、并发请求
-3. **文档完善** — README 更新
+3. **文档完善** — API 文档、使用示例
 4. **新功能规划** — Phase 5（如有）
+
+### 当前阻塞
+
+| 阻塞项 | 依赖方 | 状态 |
+|--------|--------|------|
+| 无 | — | 所有 Phase 已完成 |
 
 ---
 
