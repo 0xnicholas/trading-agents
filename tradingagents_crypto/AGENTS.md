@@ -205,11 +205,10 @@ TRADE_EXECUTION → PaperTrading / HyperliquidConnector
 ```python
 @dataclass
 class AgentConfig:
-    model_name: str = "gpt-4o"
+    name: str = "agent"
+    model: str | None = None
     temperature: float = 0.7
     max_tokens: int = 2048
-    timeout: int = 120
-    retry_count: int = 3
 ```
 
 ### 交易模式
