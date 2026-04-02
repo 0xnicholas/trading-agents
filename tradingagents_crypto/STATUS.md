@@ -10,8 +10,8 @@
 | 阶段 | 状态 | 进度 |
 |------|------|------|
 | **Phase 1** | ✅ 完成 | 100% |
-| Phase 2 | 🔵 待启动 | 0% |
-| Phase 3 | ⏸️ 等待中 | 0% |
+| Phase 2 | ⏭️ 跳过 | — |
+| Phase 3 | ✅ 完成 | 100% |
 
 ---
 
@@ -67,24 +67,31 @@
 
 | 阻塞项 | 依赖方 | 状态 |
 |--------|--------|------|
-| 无 | — | Phase 1 已完成，准备启动 M2.0 |
+| 无 | — | Phase 2 已跳过 |
 
 ---
 
 ## Phase 3 进度
 
+### 里程碑进度
+
+| # | 里程碑 | 状态 | 完成度 |
+|---|--------|------|--------|
+| M3.1 | Risk Manager Agent | ✅ 完成 | 100% |
+| M3.2 | Backtest Engine | ✅ 完成 | 100% |
+| M3.3 | Backtest Data Layer | ✅ 完成 | 100% |
+| M3.4 | Backtest Cases | ✅ 完成 | 100% |
+| M3.5 | 修复与优化 | ✅ 完成 | 100% |
+
+**完成 commits**: `d857c1b`, `42baada`, `e1e3828`, `660284c`, `ac59de6`, `be0ec72`
+
 ### 前置条件
 
 | 条件 | 状态 | 说明 |
 |------|------|------|
-| Phase 1 + Phase 2 完成 | ⏸️ 等待中 | 待 Phase 2 完成 |
-| M3.0 数据范围验证 | ⏸️ 等待中 | 待 Phase 1+2 完成后启动 |
-
-### 当前阻塞
-
-| 阻塞项 | 依赖方 | 状态 |
-|--------|--------|------|
-| Phase 1 + 2 未完成 | Phase 3 | 所有 Phase 3 里程碑阻塞 |
+| Phase 1 完成 | ✅ 已完成 | 2026-04-01 |
+| Phase 2 跳过 | ⏭️ 已跳过 | M2.0 跳过 |
+| Phase 3 实现 | ✅ 已完成 | 2026-04-02 |
 
 ---
 
@@ -106,6 +113,11 @@
 | Crypto Trader | `agents/traders/crypto_trader.py` | 交易决策 Agent |
 | Graph | `graph/crypto_trading_graph.py` | LangGraph 工作流 |
 | Config | `config/` | 配置管理系统 |
+| Risk Manager Agent | `agents/risk_mgmt/` | 风险管理 Agent |
+| Backtest Engine | `backtest/backtest_engine.py` | 回测引擎 |
+| Backtest Data Layer | `backtest/data_cache.py` | 回测数据缓存 |
+| Backtest Reporting | `backtest/reporting.py` | 回测报告生成 |
+| Alert System | `alerts/` | 告警系统 |
 
 ### 测试
 | 交付物 | 测试数 | 状态 |
@@ -119,17 +131,20 @@
 | test_config.py | 14 | ✅ |
 | test_graph.py | 4 | ✅ |
 | test_btc_e2e.py (integration) | 22 | ✅ |
+| test_case1_ma_strategy.py | — | ✅ |
+| test_case2_funding_strategy.py | — | ✅ |
+| test_case3_cross_chain.py | — | ✅ |
 
 ### Git Commits
 
 | Commit | 日期 | 内容 |
 |--------|------|------|
-| `dc24e15` | 2026-04-01 | M1.2 data layer + indicators + schema |
-| `1501789` | 2026-04-01 | M1.3 agent layer |
-| `832bbf6` | 2026-04-01 | M1.4 graph integration + langchain deps |
-| `534b52b` | 2026-04-01 | M1.5 config layer |
-| `49f6e2d` | 2026-04-01 | M1.6 E2E tests |
-| `3eeb728` | 2026-04-01 | Code review fixes (P0/P1/P2) |
+| `d857c1b` | 2026-04-02 | M3.1 Risk Manager Agent |
+| `42baada` | 2026-04-02 | M3.2 Backtest Engine |
+| `e1e3828` | 2026-04-02 | M3.3 Backtest Data Layer |
+| `660284c` | 2026-04-02 | M3.4 Backtest Cases |
+| `ac59de6` | 2026-04-02 | M3.5 reporting fix |
+| `be0ec72` | 2026-04-02 | Phase 3 review fixes |
 
 ---
 
@@ -139,7 +154,7 @@
 |------|------|------|------|---------|
 | Hyperliquid SDK Python 3.10 冲突 | 高 | 中 | ✅ 已缓解 | 切换到 Python 3.11 |
 | LLM API 成本超预期 | 中 | 低 | 监控中 | 设置 API 调用上限 |
-| Phase 2 数据源不可用 | 高 | 低 | ⚠️ 待验证 | Phase 2 M2.0 先验证 |
+| Phase 2 数据源不可用 | 高 | 低 | ⏭️ 已跳过 | Phase 2 已跳过 |
 | OpenClaw exec 审批限制 | 低 | 高 | ⚠️ 已知 | 每次命令需审批 |
 
 ---
@@ -148,6 +163,7 @@
 
 | 日期 | 决策 | 影响 |
 |------|------|------|
+| 2026-04-02 | Phase 3 完成 | 风险管理与回测系统上线 |
 | 2026-04-02 | M2.0 数据源验证跳过 | 优先聚焦核心功能开发 |
 | 2026-04-01 | Python 3.11 替代 3.10 | SDK 兼容性解决 |
 | 2026-04-01 | 分层 TDD 策略 | 测试覆盖率提升 |
@@ -158,19 +174,11 @@
 
 ## 下一步行动
 
-**Phase 2 🔵 待启动 — M2.0 数据源探测验证**
+**Phase 2 已跳过，Phase 3 已完成 — 考虑启动新功能或性能优化**
 
-1. M2.0.1 验证 CoinGecko `/global` 端点 → BTC.Dominance
-2. M2.0.2 验证 Alternative.me Fear & Greed API
-3. M2.0.3 验证 Dune Analytics 公共查询
-4. M2.0.4 验证 Binance Futures fundingRate API
-5. M2.0.5 验证 Jupiter API (Solana 价格)
-6. M2.0.6 验证 GeckoTerminal Solana Meme 数据
-7. M2.0.7 输出 `docs/phase2_data_sources.md`
-
-1. **Phase 2** (M2.0 数据源验证)
-2. **新增功能** (风险管理系统、实时监控等)
-3. **性能优化** (缓存策略、并发请求)
+1. **Phase 4** (如规划) — 新功能开发
+2. **性能优化** — 缓存策略、并发请求
+3. **测试覆盖** — 修复 7 个失败的测试
 
 ---
 
