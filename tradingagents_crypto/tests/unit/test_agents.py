@@ -18,19 +18,19 @@ class TestAgentConfig:
     def test_default_config(self):
         """Test default configuration."""
         config = AgentConfig()
-        assert config.model_name == "gpt-4o"
+        assert config.model is None
         assert config.temperature == 0.7
-        assert config.max_tokens == 4096
-        assert config.timeout_seconds == 60
+        assert config.max_tokens == 2048
+        assert config.name == "agent"
 
     def test_custom_config(self):
         """Test custom configuration."""
         config = AgentConfig(
-            model_name="gpt-4o-mini",
+            model="gpt-4o-mini",
             temperature=0.5,
             max_tokens=2048,
         )
-        assert config.model_name == "gpt-4o-mini"
+        assert config.model == "gpt-4o-mini"
         assert config.temperature == 0.5
         assert config.max_tokens == 2048
 

@@ -33,8 +33,15 @@ class TestHealthEndpoints:
         assert data["status"] == "live"
         assert "timestamp" in data
 
-    def test_health_ready_returns_200(self, client):
-        """Test /health/ready returns 200."""
+    @patch("tradingagents_crypto.api.health._do_health_check")
+    def test_health_ready_returns_200(self, mock_check, client):
+        """Test /health/ready returns 200 when all checks pass."""
+        mock_check.return_value = {
+            "redis": {"status": "ok", "latency_ms": 2},
+            "hyperliquid": {"status": "ok", "latency_ms": 45},
+            "llm": {"status": "ok", "latency_ms": 0},
+        }
+        health_module._cache.clear()
         response = client.get("/health/ready")
         assert response.status_code == 200
         data = response.json()
@@ -80,7 +87,7 @@ class TestHealthEndpoints:
 
     @patch("tradingagents_crypto.api.health._do_health_check")
     def test_health_ready_degraded_on_error(self, mock_check, client):
-        """Test /health/ready returns degraded when a check fails."""
+        """Test /health/ready returns 503 degraded when a check fails."""
         mock_check.return_value = {
             "redis": {"status": "error", "message": "connection refused"},
             "hyperliquid": {"status": "ok", "latency_ms": 45},
@@ -91,6 +98,6 @@ class TestHealthEndpoints:
         health_module._cache.clear()
 
         response = client.get("/health/ready")
-        assert response.status_code == 200
+        assert response.status_code == 503
         data = response.json()
         assert data["status"] == "degraded"

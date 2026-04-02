@@ -23,23 +23,23 @@ class TestMetaAgentNode:
         result = await meta_agent_node(state)
 
         assert result["status"] == "dispatched"
-        assert len(result["tasks"]) == 4  # BTC, ETH, SOL, Macro
+        # BTC, ETH, and Macro are always included; SOL only if mentioned
+        assert len(result["tasks"]) == 3  # BTC, ETH, Macro
         assert any(t["type"] == "btc_analysis" for t in result["tasks"])
         assert any(t["type"] == "eth_analysis" for t in result["tasks"])
-        assert any(t["type"] == "sol_analysis" for t in result["tasks"])
         assert any(t["type"] == "macro_analysis" for t in result["tasks"])
 
     @pytest.mark.asyncio
     async def test_meta_agent_sets_priority(self):
         """Test that meta_agent sets correct priorities."""
-        state = {"user_request": "test", "symbol": "ETH"}
+        state = {"user_request": "Analyze BTC", "symbol": "BTC"}
         result = await meta_agent_node(state)
 
         btc_task = next(t for t in result["tasks"] if t["type"] == "btc_analysis")
-        sol_task = next(t for t in result["tasks"] if t["type"] == "sol_analysis")
+        eth_task = next(t for t in result["tasks"] if t["type"] == "eth_analysis")
 
         assert btc_task["priority"] == 1  # High priority
-        assert sol_task["priority"] == 2  # Medium priority
+        assert eth_task["priority"] == 1  # High priority
 
     @pytest.mark.asyncio
     async def test_meta_agent_uses_symbol_from_state(self):
