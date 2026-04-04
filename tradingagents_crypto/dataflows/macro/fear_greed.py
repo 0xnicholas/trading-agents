@@ -1,149 +1,158 @@
 """
-Fear & Greed Index data.
+Fear & Greed Index data flow.
 
-Data source: Alternative.me API
-Free, no API key required.
-
-API: https://api.alternative.me/fng/
+Data source: Alternative.me
 """
-__all__ = ['FearGreedClient', 'get_current', 'get_label_from_value', 'interpret']
+__all__ = ['get_fear_greed_index', 'get_fear_greed_history']
 import logging
-from datetime import datetime, timezone
-
 import requests
-from tenacity import retry, stop_after_attempt, wait_exponential
+from typing import Optional
 
-from tradingagents_crypto.dataflows.hyperliquid.cache import CacheManager
+from tradingagents_crypto.dataflows.cache import SimpleCache
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_TTL = 3600  # 1 hour - Fear & Greed only updates daily
+DEFAULT_TTL = 3600  # 1 hour - index updates daily
+API_URL = "https://api.alternative.me/fng/"
 
 
 class FearGreedClient:
-    """Alternative.me Fear & Greed API client."""
+    """Client for Fear & Greed Index API."""
 
-    BASE_URL = "https://api.alternative.me"
-    ENDPOINT = "/fng/"
-
-    def __init__(self, cache: CacheManager | None = None):
-        self.cache = cache or CacheManager()
+    def __init__(self, cache: Optional[SimpleCache] = None):
+        self.cache = cache
         self.session = requests.Session()
+        self.session.headers.update({
+            'User-Agent': 'TradingAgents/1.0'
+        })
 
-    @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
-    def _get(self) -> dict:
-        """Make a GET request with retry."""
-        url = f"{self.BASE_URL}{self.ENDPOINT}"
-        response = self.session.get(url, timeout=10)
-        response.raise_for_status()
-        return response.json()
+    def _make_request(self, params: dict = None) -> Optional[dict]:
+        """Make API request with caching."""
+        cache_key = f"fng:{str(params)}"
 
-    def get_current(self) -> dict:
-        """
-        Get current Fear & Greed index.
-
-        Returns:
-            Dict with:
-            - value: int (0-100)
-            - label: str ("Extreme Fear", "Fear", "Neutral", "Greed", "Extreme Greed")
-            - timestamp: datetime
-            - confidence: 0.5 (free data)
-        """
-        cache_key = "fear_greed:current"
-        cached = self.cache.get(cache_key)
-        if cached:
-            return cached
+        if self.cache:
+            cached = self.cache.get(cache_key)
+            if cached:
+                return cached
 
         try:
-            data = self._get()
-            items = data.get("data", [])
+            response = self.session.get(API_URL, params=params, timeout=30)
+            response.raise_for_status()
+            data = response.json()
 
-            if not items:
-                logger.warning("Fear & Greed API returned no data")
-                return self._empty_result()
+            if self.cache:
+                self.cache.set(cache_key, data, ttl=DEFAULT_TTL)
 
-            latest = items[0]
-
-            # Parse timestamp (milliseconds)
-            ts_ms = int(latest.get("timestamp", 0)) * 1000
-            dt = datetime.fromtimestamp(ts_ms / 1000, tz=timezone.utc)
-
-            value = int(latest.get("value", 50))
-            classification = latest.get("value_classification", "Neutral")
-
-            result = {
-                "value": value,
-                "label": classification,
-                "timestamp": dt,
-                "update_time": dt.strftime("%Y-%m-%d %H:%M UTC"),
-                "confidence": 0.5,  # Free data, low confidence
-            }
-
-            self.cache.set(cache_key, result, DEFAULT_TTL)
-            return result
-
+            return data
+        except requests.RequestException as e:
+            logger.error(f"Fear & Greed API request failed: {e}")
+            return None
         except Exception as e:
-            logger.warning(f"FearGreedClient.get_current failed: {e}")
-            return self._empty_result()
+            logger.error(f"Fear & Greed API error: {e}")
+            return None
 
-    def _empty_result(self) -> dict:
-        """Return empty result when API fails."""
+    def get_current(self) -> Optional[dict]:
+        """Get current Fear & Greed Index."""
+        data = self._make_request()
+
+        if not data or 'data' not in data or not data['data']:
+            return None
+
+        try:
+            item = data['data'][0]
+            return {
+                'value': int(item['value']),
+                'value_classification': item['value_classification'],
+                'timestamp': int(item['timestamp']),
+                'time_until_update': item.get('time_until_update'),
+            }
+        except (KeyError, ValueError, IndexError) as e:
+            logger.error(f"Failed to parse Fear & Greed data: {e}")
+            return None
+
+    def get_history(self, limit: int = 30) -> list:
+        """Get historical Fear & Greed Index data."""
+        params = {'limit': limit}
+        data = self._make_request(params)
+
+        if not data or 'data' not in data:
+            return []
+
+        try:
+            history = []
+            for item in data['data']:
+                history.append({
+                    'value': int(item['value']),
+                    'value_classification': item['value_classification'],
+                    'timestamp': int(item['timestamp']),
+                    'date': item.get('timestamp'),  # Human-readable date
+                })
+            return history
+        except (KeyError, ValueError) as e:
+            logger.error(f"Failed to parse Fear & Greed history: {e}")
+            return []
+
+
+def get_fear_greed_index(cache=None) -> dict:
+    """
+    Get current Fear & Greed Index with classification.
+
+    Returns:
+        Dict with:
+        - value: int (0-100)
+        - classification: str ("Extreme Fear", "Fear", "Neutral", "Greed", "Extreme Greed")
+        - trend: str ("improving", "worsening", "stable")
+        - confidence: float (0.9)
+    """
+    client = FearGreedClient(cache=cache)
+    current = client.get_current()
+
+    if not current:
         return {
-            "value": 50,
-            "label": "Neutral",
-            "timestamp": None,
-            "update_time": None,
-            "confidence": 0.3,  # Lower when API fails
+            'value': 50,
+            'classification': 'unknown',
+            'trend': 'unknown',
+            'confidence': 0.3,
+            'error': 'Failed to fetch Fear & Greed Index',
         }
 
-    def get_label_from_value(self, value: int) -> str:
-        """
-        Get label from numeric value.
+    # Get history for trend calculation
+    history = client.get_history(limit=7)
 
-        Args:
-            value: 0-100
+    trend = 'stable'
+    if len(history) >= 2:
+        recent_values = [h['value'] for h in history[:3]]
+        older_values = [h['value'] for h in history[3:7]]
 
-        Returns:
-            Label string
-        """
-        if value <= 25:
-            return "Extreme Fear"
-        elif value <= 50:
-            return "Fear"
-        elif value <= 75:
-            return "Greed"
-        else:
-            return "Extreme Greed"
+        if recent_values and older_values:
+            recent_avg = sum(recent_values) / len(recent_values)
+            older_avg = sum(older_values) / len(older_values)
 
-    def interpret(self) -> dict:
-        """
-        Get interpreted Fear & Greed with trading signal.
+            diff = recent_avg - older_avg
+            if diff > 5:
+                trend = 'improving'
+            elif diff < -5:
+                trend = 'worsening'
 
-        Returns:
-            Dict with interpretation for trading
-        """
-        data = self.get_current()
-        value = data.get("value", 50)
+    return {
+        'value': current['value'],
+        'classification': current['value_classification'],
+        'trend': trend,
+        'confidence': 0.9,
+        'timestamp': current['timestamp'],
+    }
 
-        # Trading interpretation
-        if value <= 25:
-            signal = "buy_opportunity"
-            reason = "Extreme Fear often indicates market bottom"
-        elif value <= 40:
-            signal = "cautious_buy"
-            reason = "Fear may indicate oversold conditions"
-        elif value <= 60:
-            signal = "neutral"
-            reason = "Market in neutral zone"
-        elif value <= 75:
-            signal = "cautious_sell"
-            reason = "Greed may indicate overbought conditions"
-        else:
-            signal = "sell_opportunity"
-            reason = "Extreme Greed often indicates market top"
 
-        return {
-            **data,
-            "signal": signal,
-            "reason": reason,
-        }
+def get_fear_greed_history(days: int = 30, cache=None) -> list:
+    """
+    Get historical Fear & Greed Index values.
+
+    Args:
+        days: Number of days of history (max 365)
+        cache: Optional cache instance
+
+    Returns:
+        List of dicts with value and date
+    """
+    client = FearGreedClient(cache=cache)
+    return client.get_history(limit=min(days, 365))

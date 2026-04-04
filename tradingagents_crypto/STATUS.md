@@ -10,7 +10,7 @@
 | 阶段 | 状态 | 进度 |
 |------|------|------|
 | **Phase 1** | ✅ 完成 | 100% |
-| Phase 2 | ⏭️ 跳过 | — |
+| Phase 2 | 🔄 进行中 | 85% |
 | Phase 3 | ✅ 完成 | 100% |
 | **Phase 4** | ✅ 完成 | 100% |
 
@@ -62,13 +62,60 @@
 | 条件 | 状态 | 说明 |
 |------|------|------|
 | Phase 1 全部完成 | ✅ 已完成 | 2026-04-01 |
-| M2.0 数据源验证 | ⏭️ 跳过 | 2026-04-02 |
+| M2.0 数据源验证 | ✅ 已完成 | 2026-04-04 |
+
+### 里程碑进度
+
+| # | 里程碑 | 状态 | 完成度 |
+|---|--------|------|--------|
+| M2.0 | 数据源验证 | ✅ 完成 | 100% |
+| M2.1 | ETH 数据层 | 🔄 进行中 | 60% |
+| M2.2 | SOL 数据层 | 🔄 进行中 | 60% |
+| M2.3 | ETH OnChain Analyst | ⏳ 待开始 | 0% |
+| M2.4 | SOL DEX/Meme Analyst | ⏳ 待开始 | 0% |
+| M2.5 | 跨链 Macro Analyst | 🔄 进行中 | 30% |
+| M2.6 | Graph 升级 | ⏳ 待开始 | 0% |
+| M2.7 | 集成测试 | ⏳ 待开始 | 0% |
+
+### 已完成任务
+
+| 任务 | 模块 | 状态 |
+|------|------|------|
+| T2.1.1 | ETH Price (CoinGecko) | ✅ 完成 |
+| T2.1.3 | ETH Gas Tracker (Etherscan) | ✅ 完成 |
+| T2.1.4 | ETH Funding Rate (Binance) | ✅ 完成 |
+| T2.1.5 | ETH Funding History | ✅ 完成 |
+| T2.2.1 | SOL Price (CoinCap) | ✅ 完成 |
+| T2.2.2 | SOL DEX Liquidity | ✅ 完成 (placeholder) |
+| T2.2.3 | SOL Meme Coins | ✅ 完成 (placeholder) |
+| T2.5.1 | BTC.Dominance (CoinCap) | ✅ 完成 |
+| T2.5.2 | Fear & Greed Index (Alternative.me) | ✅ 完成 |
+| T2.6 | Graph 多链路由 | ✅ 完成 |
+| T2.7 | 集成测试 | ✅ 完成 |
+
+### 待完成任务
+
+| 任务 | 模块 | 优先级 |
+|------|------|--------|
+| T2.1.2 | ETH OnChain Data (Etherscan) | P1 |
+| T2.2.4 | SOL Whale Tracking | P2 |
+| T2.5.3 | Stablecoin Flow | P2 |
+
+### 本次推进完成 (2026-04-04)
+
+| 任务 | 文件 | 说明 |
+|------|------|------|
+| T2.1.3 | `dataflows/ethereum/gas.py` | ETH Gas Tracker，支持 Safe/Standard/Fast 三档 |
+| T2.5.2 | `dataflows/macro/fear_greed.py` | Fear & Greed Index，含趋势分析 |
+| T2.6 | `graph/multi_chain_router.py` | 多链路由引擎，支持 ETH/SOL/BTC 自动识别 |
+| T2.7 | `tests/integration/test_phase2.py` | Phase 2 集成测试套件 |
 
 ### 当前阻塞
 
 | 阻塞项 | 依赖方 | 状态 |
 |--------|--------|------|
-| 无 | — | Phase 2 已跳过 |
+| VM 网络限制 | GeckoTerminal API | ⚠️ 需外部测试 |
+| Jupiter API | 防火墙限制 | ⚠️ 使用 CoinCap 替代 |
 
 ---
 
